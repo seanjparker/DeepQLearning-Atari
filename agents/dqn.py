@@ -3,6 +3,7 @@ import numpy as np
 import gym
 import tensorflow as tf
 
+from tensorflow.keras import callbacks
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Flatten, Dense
@@ -10,6 +11,7 @@ from tensorflow.keras.layers import Conv2D, Flatten, Dense
 from skimage.color import rgb2gray
 from skimage.transform import resize
 from collections import deque
+from datetime import datetime
 
 EPISODES = 50000
 
@@ -52,7 +54,7 @@ class DQNAgent:
 
         # Training parameters
         self.batch_size = 32
-        self.train_start = self.batch_size
+        self.train_start = 10 * self.batch_size
         self.update_target_rate = 10000
         self.discount_factor = 0.99
         self.memory = deque(maxlen=400000)
@@ -64,8 +66,8 @@ class DQNAgent:
         self.model.summary()
 
         self.avg_q_max, self.avg_loss = 0, 0
-
-        self.writer = tf.summary.create_file_writer('./summary/breakout_dqn')
+        self.log_dir = './summary/dqn'
+        self.writer = tf.summary.create_file_writer(self.log_dir)
 
         if self.load_model:
             self.model.load_weights('./saved_model/breakout_dqn.h5')
@@ -139,7 +141,13 @@ class DQNAgent:
         self.model.save_weights(name)
 
 
-# Input:  210x160x3(colour image)
+# @tf.function
+# def forward_pass(model: Sequential, samples, tf_callback=None):
+#     return model.predict(samples, steps=1, callbacks=[tf_callback])
+
+
+# Input:
+# 210x160x3(colour image)
 # Output: 84x84(mono image)
 # also convert floats to ints to reduce replay memory size
 def pre_process(frame):
@@ -152,6 +160,16 @@ if __name__ == '__main__':
     # Create a breakout environment, v4 uses 4 actions
     env = gym.make('BreakoutDeterministic-v4')
     agent = DQNAgent(action_size=3, state_size=(84, 84, 4))
+
+    # tf.summary.trace_on(graph=True, profiler=True)
+
+    tensorboard_callback = callbacks.TensorBoard(log_dir=agent.log_dir)
+    agent.model.predict(np.zeros((1, 84, 84, 4)), callbacks=[tensorboard_callback])
+
+    # # Trace in the graph for showing the model in TensorBoard
+    # with agent.writer.as_default():
+    #     tf.summary.trace_export(name="model_trace", step=0, profiler_outdir=agent.log_dir)
+
     scores, episodes, global_step = [], [], 0
 
     for i_episode in range(EPISODES):
@@ -225,12 +243,11 @@ if __name__ == '__main__':
             # If the episode is over, plot the score over episodes
             if is_done:
                 with agent.writer.as_default():
-                    tf.summary.record_if(global_step > agent.train_start)
-
-                    tf.summary.scalar('Total Reward/Episode', score, step=step)
-                    tf.summary.scalar('Average Max Q/Episode', agent.avg_q_max / float(step), step=step)
-                    tf.summary.scalar('Duration/Episode', i_episode, step=step)
-                    tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=step)
+                    with tf.summary.record_if(global_step > agent.train_start):
+                        tf.summary.scalar('Total Reward/Episode', score, step=step)
+                        tf.summary.scalar('Average Max Q/Episode', agent.avg_q_max / float(step), step=step)
+                        tf.summary.scalar('Duration/Episode', i_episode, step=step)
+                        tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=step)
 
                 template = 'Episode: {}, Score: {}, Epsilon: {}, Steps: {}, Average Loss: {} '
                 print(template.format(i_episode,
@@ -241,7 +258,7 @@ if __name__ == '__main__':
 
                 agent.avg_q_max, agent.avg_loss = 0, 0
 
-        if i_episode % 1000 == 0:
-            agent.model.save_weights("./saved_model/breakout_dqn.h5")
+        if i_episode % 100 == 0:
+            agent.model.save_weights(f'./saved_model/breakout_dqn_{i_episode}.h5')
 
     env.close()

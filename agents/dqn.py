@@ -13,28 +13,27 @@ from skimage.transform import resize
 from collections import deque
 from datetime import datetime
 
+
 EPISODES = 50000
 
 
-# class Memory:
-#     def __init__(self, max_size):
-#         self._max_size = max_size
-#         self._memory = []
-#
-#     def add_sample(self, sample):
-#         self._memory.append(sample)
-#         if len(self._memory) > self._max_size:
-#             self._memory.pop(0)
-#
-#     def sample(self, no_samples):
-#         if no_samples > len(self._memory):
-#             return random.sample(self._memory, len(self._memory))
-#         else:
-#             return random.sample(self._memory, no_samples)
-#
-#     @property
-#     def num_samples(self):
-#         return len(self._memory)
+class ExperienceReplayMemory:
+    def __init__(self, max_size):
+        self.buffer = deque(maxlen=max_size)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def add(self, experience):
+        self.buffer.append(experience)
+
+    def sample(self, batch_size):
+        buffer_size = len(self.buffer)
+        index = np.random.choice(np.arange(buffer_size),
+                                 size=batch_size,
+                                 replace=False)
+
+        return [self.buffer[i] for i in index]
 
 
 class DQNAgent:
@@ -57,7 +56,7 @@ class DQNAgent:
         self.train_start = 10 * self.batch_size
         self.update_target_rate = 10000
         self.discount_factor = 0.99
-        self.memory = deque(maxlen=400000)
+        self.memory = ExperienceReplayMemory(max_size=100000)
         self.no_op_steps = 30
 
         self.model = self.build_model()
@@ -94,12 +93,12 @@ class DQNAgent:
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         else:
-            q_value = self.model.predict(history)
+            q_value = self.model.predict_on_batch(history)
             return np.argmax(q_value[0])
 
     # save sample <s,a,r,s'> to the replay memory
     def add_to_memory(self, history, action, reward, next_history, dead):
-        self.memory.append((history, action, reward, next_history, dead))
+        self.memory.add((history, action, reward, next_history, dead))
 
     # pick samples randomly from replay memory (with batch_size)
     def train_replay(self):
@@ -108,7 +107,7 @@ class DQNAgent:
         if self.epsilon > self.epsilon_end:
             self.epsilon -= self.epsilon_decay_step
 
-        mini_batch = random.sample(self.memory, self.batch_size)
+        mini_batch = self.memory.sample(batch_size=self.batch_size)
 
         mb_history = np.zeros((self.batch_size, self.state_size[0],
                                self.state_size[1], self.state_size[2]))
@@ -124,7 +123,7 @@ class DQNAgent:
             mb_reward.append(mini_batch[i][2])
             mb_dead.append(mini_batch[i][4])
 
-        target_value = self.target_model.predict(mb_next_history)
+        target_value = self.target_model.predict_on_batch(mb_next_history)
 
         # like Q Learning, get maximum Q value at s'
         # But from target model
@@ -164,7 +163,7 @@ if __name__ == '__main__':
     # tf.summary.trace_on(graph=True, profiler=True)
 
     tensorboard_callback = callbacks.TensorBoard(log_dir=agent.log_dir)
-    agent.model.predict(np.zeros((1, 84, 84, 4)), callbacks=[tensorboard_callback])
+    # agent.model.predict(np.zeros((1, 84, 84, 4)), callbacks=[tensorboard_callback])
 
     # # Trace in the graph for showing the model in TensorBoard
     # with agent.writer.as_default():
@@ -213,7 +212,7 @@ if __name__ == '__main__':
             next_iter_history = np.append(next_state, frame_history[:, :, :, :3], axis=3)
 
             agent.avg_q_max += np.amax(
-                agent.model.predict(np.float32(frame_history / 255.0))[0]
+                agent.model.predict_on_batch(np.float32(frame_history / 255.0))[0]
             )
 
             # if the agent missed the ball, agent is dead but episode not over
@@ -242,19 +241,21 @@ if __name__ == '__main__':
 
             # If the episode is over, plot the score over episodes
             if is_done:
-                with agent.writer.as_default():
-                    with tf.summary.record_if(global_step > agent.train_start):
-                        tf.summary.scalar('Total Reward/Episode', score, step=step)
-                        tf.summary.scalar('Average Max Q/Episode', agent.avg_q_max / float(step), step=step)
-                        tf.summary.scalar('Duration/Episode', i_episode, step=step)
-                        tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=step)
+                # with agent.writer.as_default():
+                #     with tf.summary.record_if(global_step > agent.train_start):
+                #         tf.summary.scalar('Total Reward/Episode', score, step=step)
+                #         tf.summary.scalar('Average Max Q/Episode', agent.avg_q_max / float(step), step=step)
+                #         tf.summary.scalar('Duration/Episode', i_episode, step=step)
+                #         tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=step)
 
-                template = 'Episode: {}, Score: {}, Epsilon: {}, Steps: {}, Average Loss: {} '
+                template = 'Episode: {}, Score: {}, Epsilon: {}, Steps: {}, Average Loss: {}, memory length: {}'
+                memory_size = len(agent.memory)
                 print(template.format(i_episode,
                                       score,
                                       agent.epsilon,
                                       step,
-                                      agent.avg_loss / float(step)))
+                                      agent.avg_loss / float(step),
+                                      memory_size))
 
                 agent.avg_q_max, agent.avg_loss = 0, 0
 

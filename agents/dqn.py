@@ -53,7 +53,7 @@ class DQNAgent:
 
         # Training parameters
         self.batch_size = 32
-        self.train_start = 10 * self.batch_size
+        self.train_start = 15000
         self.update_target_rate = 10000
         self.discount_factor = 0.99
         self.memory = ExperienceReplayMemory(max_size=100000)
@@ -78,9 +78,9 @@ class DQNAgent:
         model.add(Conv2D(64, (2, 2), strides=(1, 1), activation='relu'))
         model.add(Flatten())
         model.add(Dense(512, activation='relu'))
-        model.add(Dense(self.action_size, activation='linear'))
+        model.add(Dense(self.action_size))
 
-        model.compile(loss='huber_loss', optimizer=RMSprop())
+        model.compile(loss='huber_loss', optimizer=RMSprop(learning_rate=0.00025, epsilon=0.01))
         return model
 
     # After some time interval update the target model to be same with model
@@ -248,11 +248,13 @@ if __name__ == '__main__':
                 #         tf.summary.scalar('Duration/Episode', i_episode, step=step)
                 #         tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=step)
 
-                template = 'Episode: {}, Score: {}, Epsilon: {}, Steps: {}, Average Loss: {}, memory length: {}'
+                template = 'Episode: {}, Score: {}, Epsilon: {}, Global Steps: {}, Episode Steps: {}, Average Loss: {' \
+                           '}, Memory length: {} '
                 memory_size = len(agent.memory)
                 print(template.format(i_episode,
                                       score,
                                       agent.epsilon,
+                                      global_step,
                                       step,
                                       agent.avg_loss / float(step),
                                       memory_size))

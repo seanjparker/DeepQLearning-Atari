@@ -13,8 +13,10 @@ matplotlib = "*"
 pandas = "*"
 jupyter = "*"
 absl-py = "*"
-tensorflow = "*"
 scikit-image = "*"
+tqdm = "*"
+tensorflow = "*"
+opencv-python = "*"
 
 [requires]
 python_version = "3.7"

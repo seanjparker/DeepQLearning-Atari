@@ -2,18 +2,17 @@ import random
 import numpy as np
 import gym
 import tensorflow as tf
+import cv2
 
 from tensorflow.keras import callbacks
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.losses import Huber
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Flatten, Dense
 
-from skimage.color import rgb2gray
-from skimage.transform import resize
 from collections import deque
-from datetime import datetime
 
-
+cv2.ocl.setUseOpenCL(False)
 EPISODES = 50000
 
 
@@ -37,13 +36,14 @@ class ExperienceReplayMemory:
 
 
 class DQNAgent:
-    def __init__(self, action_size, state_size):
+    def __init__(self, action_size, state_size, img_size=84):
         self.render = False
         self.load_model = False
 
         # Env settings
         self.state_size = state_size
         self.action_size = action_size
+        self.img_size = img_size
 
         # Epsilon parameters
         self.epsilon = 1.0
@@ -53,11 +53,14 @@ class DQNAgent:
 
         # Training parameters
         self.batch_size = 32
-        self.train_start = 15000
+        self.initial_replay_size = 15000
+        self.train_interval = 4
         self.update_target_rate = 10000
-        self.discount_factor = 0.99
+        self.gamma = 0.99
         self.memory = ExperienceReplayMemory(max_size=100000)
         self.no_op_steps = 30
+
+        self.optimizer = Adam(learning_rate=0.00025)
 
         self.model = self.build_model()
         self.target_model = self.build_model()
@@ -79,8 +82,10 @@ class DQNAgent:
         model.add(Flatten())
         model.add(Dense(512, activation='relu'))
         model.add(Dense(self.action_size))
-
-        model.compile(loss='huber_loss', optimizer=RMSprop(learning_rate=0.00025, epsilon=0.01))
+        huber = Huber()
+        model.compile(loss=huber,
+                      optimizer=self.optimizer,
+                      metrics=['accuracy'])
         return model
 
     # After some time interval update the target model to be same with model
@@ -93,7 +98,7 @@ class DQNAgent:
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         else:
-            q_value = self.model.predict_on_batch(history)
+            q_value = self.model.predict(history)
             return np.argmax(q_value[0])
 
     # save sample <s,a,r,s'> to the replay memory
@@ -102,8 +107,6 @@ class DQNAgent:
 
     # pick samples randomly from replay memory (with batch_size)
     def train_replay(self):
-        if len(self.memory) < self.train_start:
-            return
         if self.epsilon > self.epsilon_end:
             self.epsilon -= self.epsilon_decay_step
 
@@ -113,7 +116,7 @@ class DQNAgent:
                                self.state_size[1], self.state_size[2]))
         mb_next_history = np.zeros((self.batch_size, self.state_size[0],
                                     self.state_size[1], self.state_size[2]))
-        target_q_mini_batch = np.zeros((self.batch_size,))
+
         mb_action, mb_reward, mb_dead = [], [], []
 
         for i in range(self.batch_size):
@@ -123,40 +126,52 @@ class DQNAgent:
             mb_reward.append(mini_batch[i][2])
             mb_dead.append(mini_batch[i][4])
 
-        target_value = self.target_model.predict_on_batch(mb_next_history)
+        # actions_mask = np.ones((self.batch_size, self.action_size))
+        # target_value = self.target_model.predict([mb_next_history, actions_mask])
+        target_value = self.target_model.predict(mb_next_history)
 
         # like Q Learning, get maximum Q value at s'
         # But from target model
+        target_q_mini_batch = np.zeros(self.batch_size)
         for i in range(self.batch_size):
             if mb_dead[i]:
-                target_q_mini_batch[i] = mb_reward[i]
+                target_q_mini_batch[i] = mb_reward[i]  # maybe -1?
             else:
-                target_q_mini_batch[i] = mb_reward[i] + self.discount_factor * np.amax(target_value[i])
+                target_q_mini_batch[i] = mb_reward[i] + self.gamma * np.amax(target_value[i])
 
-        loss = self.model.train_on_batch(mb_history, target_q_mini_batch)
+        # action_one_hot = self.get_one_hot(mb_action, self.action_size)
+        # target_one_hot = action_one_hot * target_q_mini_batch[:, None]
+
+        # run_history = self.model.fit([mb_history, action_one_hot], target_one_hot,
+        #                              epochs=1, batch_size=self.batch_size, verbose=0)
+        run_history = self.model.fit(mb_history, target_q_mini_batch,
+                                     epochs=1, batch_size=self.batch_size, verbose=0)
+        loss = run_history.history['loss'][0]
         self.avg_loss += loss
 
     def save_model(self, name):
         self.model.save_weights(name)
 
+    @staticmethod
+    def get_one_hot(targets, nb_classes):
+        return np.eye(nb_classes)[np.array(targets).reshape(-1)]
 
-# @tf.function
-# def forward_pass(model: Sequential, samples, tf_callback=None):
-#     return model.predict(samples, steps=1, callbacks=[tf_callback])
-
-
-# Input:
-# 210x160x3(colour image)
-# Output: 84x84(mono image)
-# also convert floats to ints to reduce replay memory size
-def pre_process(frame):
-    return np.uint8(
-        resize(rgb2gray(frame), (84, 84), mode='constant') * 255
-    )
+    # Input:
+    # 210x160x3(colour image)
+    # Output: 84x84(mono image)
+    # also convert floats to ints to reduce replay memory size
+    @staticmethod
+    def pre_process(frame):
+        return np.uint8(
+            cv2.resize(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY), (84, 84), interpolation=cv2.INTER_AREA) * 255
+        )
 
 
 if __name__ == '__main__':
-    # Create a breakout environment, v4 uses 4 actions
+    # Create a breakout environment
+    # Frameskip of 4 (repeats chosen action 4 times)
+    # No random action stochasticity
+    # https://github.com/openai/gym/issues/1280#issuecomment-466820285
     env = gym.make('BreakoutDeterministic-v4')
     agent = DQNAgent(action_size=3, state_size=(84, 84, 4))
 
@@ -181,13 +196,13 @@ if __name__ == '__main__':
         next_frame = env.reset()
 
         # At the start of the episode we don't have any state information
-        # we do nothing to prevent sub-optimal moves
+        # we do nothing to prevent sub-optimal moves, from the deepmind paper
         for _ in range(random.randint(1, agent.no_op_steps)):
             next_frame, _, _, _ = env.step(1)
 
         # At the start of the episode, there are no preceding frames
         # copy the previous ones to make a history
-        processed_frame = pre_process(next_frame)
+        processed_frame = agent.pre_process(next_frame)
         frame_history = np.stack((processed_frame, processed_frame, processed_frame, processed_frame), axis=2)
         frame_history = np.reshape([frame_history], (1, 84, 84, 4))
 
@@ -207,7 +222,7 @@ if __name__ == '__main__':
             next_frame, next_reward, is_done, info = env.step(action_to_take)
 
             # Pre-process the frame and add to history
-            next_state = pre_process(next_frame)
+            next_state = agent.pre_process(next_frame)
             next_state = np.reshape([next_state], (1, 84, 84, 1))
             next_iter_history = np.append(next_state, frame_history[:, :, :, :3], axis=3)
 
@@ -226,11 +241,14 @@ if __name__ == '__main__':
             agent.add_to_memory(frame_history, action_to_take, clipped_reward, next_iter_history, is_dead)
 
             # Every step, train the model
-            agent.train_replay()
+            if global_step > agent.initial_replay_size:
+                # Train network
+                if global_step % agent.train_interval == 0:
+                    agent.train_replay()
 
-            # Update the target model
-            if global_step % agent.update_target_rate == 0:
-                agent.update_target_model()
+                # Update the target model
+                if global_step % agent.update_target_rate == 0:
+                    agent.update_target_model()
 
             score += clipped_reward
 
@@ -261,7 +279,7 @@ if __name__ == '__main__':
 
                 agent.avg_q_max, agent.avg_loss = 0, 0
 
-        if i_episode % 100 == 0:
+        if i_episode % 1000 == 0:
             agent.model.save_weights(f'./saved_model/breakout_dqn_{i_episode}.h5')
 
     env.close()

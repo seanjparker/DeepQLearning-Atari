@@ -11,6 +11,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Flatten, Dense
 
 from collections import deque
+from datetime import datetime
 
 cv2.ocl.setUseOpenCL(False)
 EPISODES = 50000
@@ -40,6 +41,11 @@ class DQNAgent:
         self.render = False
         self.load_model = False
 
+        self.avg_q_max, self.avg_loss = 0, 0
+        self.log_dir = './summary/dqn/' + datetime.now().strftime('%Y%m%d-%H%M%S')
+        self.checkpoint_path = './checkpoints/dqn_checkpoint'
+        self.writer = tf.summary.create_file_writer(self.log_dir)
+
         # Env settings
         self.state_size = state_size
         self.action_size = action_size
@@ -53,39 +59,40 @@ class DQNAgent:
 
         # Training parameters
         self.batch_size = 32
-        self.initial_replay_size = 15000
-        self.train_interval = 4
-        self.update_target_rate = 10000
+        self.initial_replay_size = 200
+        self.train_rate = 4
+        self.update_model_target_rate = 10000
         self.gamma = 0.99
         self.memory = ExperienceReplayMemory(max_size=100000)
         self.no_op_steps = 30
 
-        self.optimizer = Adam(learning_rate=0.00025)
+        self.optimizer = Adam(learning_rate=0.00025)  # 0.00001 for breakout, 0.00025 for pong
+        self.callbacks = [
+            tf.keras.callbacks.TensorBoard(log_dir=self.log_dir)
+        ]
 
         self.model = self.build_model()
         self.target_model = self.build_model()
         self.target_model.set_weights(self.model.get_weights())
         self.model.summary()
 
-        self.avg_q_max, self.avg_loss = 0, 0
-        self.log_dir = './summary/dqn'
-        self.writer = tf.summary.create_file_writer(self.log_dir)
-
         if self.load_model:
-            self.model.load_weights('./saved_model/breakout_dqn.h5')
+            self.model.load_weights(self.checkpoint_path)
 
     def build_model(self):
         model = Sequential()
-        model.add(Conv2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=self.state_size))
-        model.add(Conv2D(64, (4, 4), strides=(2, 2), activation='relu'))
-        model.add(Conv2D(64, (2, 2), strides=(1, 1), activation='relu'))
+        model.add(Conv2D(32, (8, 8), strides=(4, 4), activation='relu',
+                         input_shape=self.state_size, kernel_initializer=tf.initializers.VarianceScaling(scale=2)))
+        model.add(Conv2D(64, (4, 4), strides=(2, 2), activation='relu',
+                         kernel_initializer=tf.initializers.VarianceScaling(scale=2)))
+        model.add(Conv2D(64, (2, 2), strides=(1, 1), activation='relu',
+                         kernel_initializer=tf.initializers.VarianceScaling(scale=2)))
         model.add(Flatten())
         model.add(Dense(512, activation='relu'))
         model.add(Dense(self.action_size))
         huber = Huber()
         model.compile(loss=huber,
-                      optimizer=self.optimizer,
-                      metrics=['accuracy'])
+                      optimizer=self.optimizer)
         return model
 
     # After some time interval update the target model to be same with model
@@ -126,26 +133,27 @@ class DQNAgent:
             mb_reward.append(mini_batch[i][2])
             mb_dead.append(mini_batch[i][4])
 
-        # actions_mask = np.ones((self.batch_size, self.action_size))
-        # target_value = self.target_model.predict([mb_next_history, actions_mask])
-        target_value = self.target_model.predict(mb_next_history)
+        actions_mask = np.ones((self.batch_size, self.action_size))
+        target_value = self.target_model.predict([mb_next_history, actions_mask])
+        # target_value = self.target_model.predict(mb_next_history)
 
         # like Q Learning, get maximum Q value at s'
         # But from target model
         target_q_mini_batch = np.zeros(self.batch_size)
         for i in range(self.batch_size):
             if mb_dead[i]:
-                target_q_mini_batch[i] = mb_reward[i]  # maybe -1?
+                target_q_mini_batch[i] = mb_reward[i]
             else:
                 target_q_mini_batch[i] = mb_reward[i] + self.gamma * np.amax(target_value[i])
 
-        # action_one_hot = self.get_one_hot(mb_action, self.action_size)
-        # target_one_hot = action_one_hot * target_q_mini_batch[:, None]
+        action_one_hot = self.get_one_hot(mb_action, self.action_size)
+        target_one_hot = action_one_hot * target_q_mini_batch[:, None]
 
-        # run_history = self.model.fit([mb_history, action_one_hot], target_one_hot,
+        run_history = self.model.fit([mb_history, action_one_hot], target_one_hot,
+                                     epochs=1, batch_size=self.batch_size, verbose=0,
+                                     )
+        # run_history = self.model.fit(mb_history, target_q_mini_batch,
         #                              epochs=1, batch_size=self.batch_size, verbose=0)
-        run_history = self.model.fit(mb_history, target_q_mini_batch,
-                                     epochs=1, batch_size=self.batch_size, verbose=0)
         loss = run_history.history['loss'][0]
         self.avg_loss += loss
 
@@ -154,7 +162,7 @@ class DQNAgent:
 
     @staticmethod
     def get_one_hot(targets, nb_classes):
-        return np.eye(nb_classes)[np.array(targets).reshape(-1)]
+        return tf.one_hot(targets, depth=nb_classes)
 
     # Input:
     # 210x160x3(colour image)
@@ -172,12 +180,12 @@ if __name__ == '__main__':
     # Frameskip of 4 (repeats chosen action 4 times)
     # No random action stochasticity
     # https://github.com/openai/gym/issues/1280#issuecomment-466820285
-    env = gym.make('BreakoutDeterministic-v4')
+    env = gym.make('PongDeterministic-v4')
     agent = DQNAgent(action_size=3, state_size=(84, 84, 4))
 
     # tf.summary.trace_on(graph=True, profiler=True)
 
-    tensorboard_callback = callbacks.TensorBoard(log_dir=agent.log_dir)
+    # tensorboard_callback = callbacks.TensorBoard(log_dir=agent.log_dir)
     # agent.model.predict(np.zeros((1, 84, 84, 4)), callbacks=[tensorboard_callback])
 
     # # Trace in the graph for showing the model in TensorBoard
@@ -203,7 +211,7 @@ if __name__ == '__main__':
         # At the start of the episode, there are no preceding frames
         # copy the previous ones to make a history
         processed_frame = agent.pre_process(next_frame)
-        frame_history = np.stack((processed_frame, processed_frame, processed_frame, processed_frame), axis=2)
+        frame_history = np.repeat(processed_frame, agent.train_rate, axis=1)
         frame_history = np.reshape([frame_history], (1, 84, 84, 4))
 
         while not is_done:
@@ -227,7 +235,7 @@ if __name__ == '__main__':
             next_iter_history = np.append(next_state, frame_history[:, :, :, :3], axis=3)
 
             agent.avg_q_max += np.amax(
-                agent.model.predict_on_batch(np.float32(frame_history / 255.0))[0]
+                agent.model.predict(np.float32(frame_history / 255.0))[0]
             )
 
             # if the agent missed the ball, agent is dead but episode not over
@@ -242,12 +250,12 @@ if __name__ == '__main__':
 
             # Every step, train the model
             if global_step > agent.initial_replay_size:
-                # Train network
-                if global_step % agent.train_interval == 0:
+                if global_step % agent.train_rate == 0:
+                    # Train network
                     agent.train_replay()
 
                 # Update the target model
-                if global_step % agent.update_target_rate == 0:
+                if global_step % agent.update_model_target_rate == 0:
                     agent.update_target_model()
 
             score += clipped_reward
@@ -259,12 +267,11 @@ if __name__ == '__main__':
 
             # If the episode is over, plot the score over episodes
             if is_done:
-                # with agent.writer.as_default():
-                #     with tf.summary.record_if(global_step > agent.train_start):
-                #         tf.summary.scalar('Total Reward/Episode', score, step=step)
-                #         tf.summary.scalar('Average Max Q/Episode', agent.avg_q_max / float(step), step=step)
-                #         tf.summary.scalar('Duration/Episode', i_episode, step=step)
-                #         tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=step)
+                with agent.writer.as_default():
+                    with tf.summary.record_if(global_step > agent.initial_replay_size):
+                        tf.summary.scalar('Total Reward/Episode', score, step=i_episode)
+                        tf.summary.scalar('Average Max Q/Episode', agent.avg_q_max / float(step), step=i_episode)
+                        tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=i_episode)
 
                 template = 'Episode: {}, Score: {}, Epsilon: {}, Global Steps: {}, Episode Steps: {}, Average Loss: {' \
                            '}, Memory length: {} '
@@ -280,6 +287,6 @@ if __name__ == '__main__':
                 agent.avg_q_max, agent.avg_loss = 0, 0
 
         if i_episode % 1000 == 0:
-            agent.model.save_weights(f'./saved_model/breakout_dqn_{i_episode}.h5')
+            agent.model.save_weights(agent.checkpoint_path)
 
     env.close()

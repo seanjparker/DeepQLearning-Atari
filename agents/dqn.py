@@ -9,6 +9,7 @@ from tensorflow.keras.losses import Huber
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Flatten, Dense
+import tensorflow.keras.backend as kb
 
 from collections import deque
 from datetime import datetime
@@ -59,14 +60,15 @@ class DQNAgent:
 
         # Training parameters
         self.batch_size = 32
-        self.initial_replay_size = 200
+        self.initial_replay_size = 10000
         self.train_rate = 4
-        self.update_model_target_rate = 10000
+        self.update_model_target_rate = 1000
         self.gamma = 0.99
-        self.memory = ExperienceReplayMemory(max_size=100000)
+        self.memory = ExperienceReplayMemory(max_size=10000)
         self.no_op_steps = 30
 
-        self.optimizer = Adam(learning_rate=0.00025)  # 0.00001 for breakout, 0.00025 for pong
+        # learning rate is 0.00001 for breakout, 0.00025 for pong
+        self.optimizer = Adam(learning_rate=1e-4)
         self.callbacks = [
             tf.keras.callbacks.TensorBoard(log_dir=self.log_dir)
         ]
@@ -79,6 +81,16 @@ class DQNAgent:
         if self.load_model:
             self.model.load_weights(self.checkpoint_path)
 
+    @staticmethod
+    def huber_loss(y, q_value, delta=1.0):
+        """Reference: https://en.wikipedia.org/wiki/Huber_loss"""
+        error = tf.abs(y - q_value)
+        return tf.where(  # condition, true, false
+            tf.abs(error) < delta,
+            tf.square(error) * 0.5,
+            delta * (tf.abs(error) - 0.5 * delta)
+        )
+
     def build_model(self):
         model = Sequential()
         model.add(Conv2D(32, (8, 8), strides=(4, 4), activation='relu',
@@ -90,8 +102,7 @@ class DQNAgent:
         model.add(Flatten())
         model.add(Dense(512, activation='relu'))
         model.add(Dense(self.action_size))
-        huber = Huber()
-        model.compile(loss=huber,
+        model.compile(loss=self.huber_loss,
                       optimizer=self.optimizer)
         return model
 
@@ -180,7 +191,7 @@ if __name__ == '__main__':
     # Frameskip of 4 (repeats chosen action 4 times)
     # No random action stochasticity
     # https://github.com/openai/gym/issues/1280#issuecomment-466820285
-    env = gym.make('PongDeterministic-v4')
+    env = gym.make('PongNoFrameskip-v4')
     agent = DQNAgent(action_size=3, state_size=(84, 84, 4))
 
     # tf.summary.trace_on(graph=True, profiler=True)
@@ -274,7 +285,7 @@ if __name__ == '__main__':
                         tf.summary.scalar('Average Loss/Episode', agent.avg_loss / float(step), step=i_episode)
 
                 template = 'Episode: {}, Score: {}, Epsilon: {}, Global Steps: {}, Episode Steps: {}, Average Loss: {' \
-                           '}, Memory length: {} '
+                           '}, Avg Q: {}, Memory length: {} '
                 memory_size = len(agent.memory)
                 print(template.format(i_episode,
                                       score,
@@ -282,6 +293,7 @@ if __name__ == '__main__':
                                       global_step,
                                       step,
                                       agent.avg_loss / float(step),
+                                      agent.avg_q_max / float(step),
                                       memory_size))
 
                 agent.avg_q_max, agent.avg_loss = 0, 0

@@ -1,3 +1,4 @@
+import tensorflow as tf
 from dqn_train import learn
 from atari import make_atari, construct_env
 
@@ -20,9 +21,10 @@ def main():
         learning_starts=10000,
         target_network_update_freq=1000,
         gamma=0.99,
+        checkpoint_path='./checkpoints/'
     )
 
-    model.save('pong_model.pkl')
+    tf.saved_model.save(model, './saved_model/dqn_pong/')
     env.close()
 
 

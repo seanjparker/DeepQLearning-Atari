@@ -24,8 +24,7 @@ def learn(env,
           learning_starts=1000,
           gamma=1.0,
           target_network_update_freq=500,
-          load_path=None,
-          **network_kwargs):
+          **network_kwargs) -> tf.Module:
     """Train a deepq model.
 
     Parameters
@@ -33,11 +32,9 @@ def learn(env,
     env: gym.Env
         environment to train on
     network: string or a function
-        neural network to use as a q function approximator. If string, has to be one of the names of registered models in baselines.common.models
-        (mlp, cnn, conv_only). If a function, should take an observation tensor and return a latent variable tensor, which
-        will be mapped to the Q function heads (see build_q_func in baselines.deepq.models for details on that)
-    seed: int or None
-        prng seed. The runs with the same seed "should" give the same results. If None, no seeding is used.
+        neural network to use as a q function approximator. If string, has to be one of the names of registered models
+        in agents.dqn_model_builder (conv_only). If a function, should take an observation tensor and
+        return a latent variable tensor, which will be mapped to the Q function heads
     learning_rate: float
         learning rate for adam optimizer
     total_timesteps: int
@@ -68,21 +65,12 @@ def learn(env,
         discount factor
     target_network_update_freq: int
         update the target network every `target_network_update_freq` steps.
-    param_noise: bool
-        whether or not to use parameter space noise (https://arxiv.org/abs/1706.01905)
-    callback: (locals, globals) -> None
-        function called at every steps with state of the algorithm.
-        If callback returns true training stops.
-    load_path: str
-        path to load the model from. (default: None)
     **network_kwargs
         additional keyword arguments to pass to the network builder.
 
     Returns
     -------
-    model: ActWrapper
-        Wrapper over act function. Adds ability to save it and load it.
-        See header of baselines/deepq/categorical.py for details on the act function.
+    model: an instance tf.Module that contains the trained model
     """
     # Create all the functions necessary to train the model
     q_func = build_q_func(network, **network_kwargs)
@@ -96,10 +84,10 @@ def learn(env,
         gamma=gamma
     )
 
-    if load_path is not None:
-        load_path = osp.expanduser(load_path)
+    if checkpoint_path is not None:
+        load_path = osp.expanduser(checkpoint_path)
         ckpt = tf.train.Checkpoint(model=model)
-        manager = tf.train.CheckpointManager(ckpt, load_path, max_to_keep=None)
+        manager = tf.train.CheckpointManager(ckpt, load_path, max_to_keep=5)
         ckpt.restore(manager.latest_checkpoint)
         print("Restoring from {}".format(manager.latest_checkpoint))
 
@@ -157,5 +145,8 @@ def learn(env,
         if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
             format_str = "steps: {}, episodes: {}, mean 100 ep reward: {}, %time spent expl: {}"
             print(format_str.format(t, num_episodes, mean_100ep_reward, int(100 * exploration.value(t))))
+
+        if done and checkpoint_path is not None and t % checkpoint_freq == 0:
+            manager.save()
 
     return model

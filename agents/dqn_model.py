@@ -95,8 +95,8 @@ class DeepQ(tf.Module):
         self.eps = tf.Variable(0., name="eps")
 
     @tf.function(input_signature=[tf.TensorSpec(shape=(1, 84, 84, 4), dtype=tf.uint8, name='obs'),
-                                  tf.TensorSpec(shape=[None], dtype=tf.bool, name='stochastic'),
-                                  tf.TensorSpec(shape=[None], dtype=tf.float32, name='update_eps')])
+                                  tf.TensorSpec(shape=(), dtype=tf.bool, name='stochastic'),
+                                  tf.TensorSpec(shape=(), dtype=tf.float32, name='update_eps')])
     def step(self, obs, stochastic=True, update_eps=-1):
         q_values = self.q_network(obs)
         deterministic_actions = tf.argmax(q_values, axis=1)

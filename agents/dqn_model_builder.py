@@ -66,7 +66,7 @@ def build_q_func(network, hiddens=None, layer_norm=False, **network_kwargs):
     if isinstance(network, str):
         network = get_network_builder(network)(**network_kwargs)
 
-    def q_func_builder(input_shape, num_actions):
+    def q_func_builder(input_shape, num_actions) -> tf.keras.Model:
         # the sub Functional model which does not include the top layer.
         model = network(input_shape)
 

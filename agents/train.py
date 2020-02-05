@@ -24,7 +24,7 @@ def main():
         checkpoint_path='./checkpoints/'
     )
 
-    tf.saved_model.save(model, './saved_model/dqn_pong/')
+    model.save('./saved_model/dqn_pong/')
     env.close()
 
 

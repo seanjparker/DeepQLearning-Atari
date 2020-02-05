@@ -1,3 +1,5 @@
+from typing import Callable, Any
+
 """Deep Q model
 
 The functions in this model:
@@ -80,7 +82,8 @@ def huber_loss(x, delta=1.0):
 
 
 class DeepQ(tf.Module):
-    def __init__(self, q_func, observation_shape, num_actions, learning_rate, grad_norm_clipping=None, gamma=1.0):
+    def __init__(self, model_builder: Callable[[Any, Any], tf.keras.Model], observation_shape, num_actions,
+                 learning_rate, grad_norm_clipping=None, gamma=1.0):
         super().__init__()
         self.num_actions = num_actions
         self.gamma = gamma
@@ -89,14 +92,12 @@ class DeepQ(tf.Module):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate)
 
         with tf.name_scope('q_network'):
-            self.q_network = q_func(observation_shape, num_actions)
+            self.q_network = model_builder(observation_shape, num_actions)
         with tf.name_scope('target_q_network'):
-            self.target_q_network = q_func(observation_shape, num_actions)
+            self.target_q_network = model_builder(observation_shape, num_actions)
         self.eps = tf.Variable(0., name="eps")
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=(1, 84, 84, 4), dtype=tf.uint8, name='obs'),
-                                  tf.TensorSpec([], tf.bool, name='stochastic'),
-                                  tf.TensorSpec([], tf.float32, name='update_eps')])
+    @tf.function()
     def step(self, obs, stochastic=True, update_eps=-1):
         q_values = self.q_network(obs)
         deterministic_actions = tf.argmax(q_values, axis=1)

@@ -24,7 +24,7 @@ def learn(env,
           learning_starts=1000,
           gamma=1.0,
           target_network_update_freq=500,
-          **network_kwargs) -> tf.Module:
+          **network_kwargs) -> tf.keras.Model:
     """Train a deepq model.
 
     Parameters
@@ -76,7 +76,7 @@ def learn(env,
     q_func = build_q_func(network, **network_kwargs)
 
     model = DeepQ(
-        q_func=q_func,
+        model_builder=q_func,
         observation_shape=env.observation_space.shape,
         num_actions=env.action_space.n,
         learning_rate=learning_rate,
@@ -84,9 +84,10 @@ def learn(env,
         gamma=gamma
     )
 
+    manager = None
     if checkpoint_path is not None:
         load_path = osp.expanduser(checkpoint_path)
-        ckpt = tf.train.Checkpoint(model=model)
+        ckpt = tf.train.Checkpoint(model=model.q_network)
         manager = tf.train.CheckpointManager(ckpt, load_path, max_to_keep=5)
         ckpt.restore(manager.latest_checkpoint)
         print("Restoring from {}".format(manager.latest_checkpoint))
@@ -149,4 +150,4 @@ def learn(env,
         if done and checkpoint_path is not None and t % checkpoint_freq == 0:
             manager.save()
 
-    return model
+    return model.q_network

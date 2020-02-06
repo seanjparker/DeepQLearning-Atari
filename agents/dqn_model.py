@@ -95,6 +95,8 @@ class DeepQ(tf.Module):
             self.q_network = model_builder(observation_shape, num_actions)
         with tf.name_scope('target_q_network'):
             self.target_q_network = model_builder(observation_shape, num_actions)
+
+        self.q_network.compile(optimizer=self.optimizer, loss=huber_loss)
         self.eps = tf.Variable(0., name="eps")
 
     @tf.function()

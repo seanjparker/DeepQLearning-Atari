@@ -5,6 +5,7 @@ import cv2
 
 from collections import deque
 from gym import spaces
+from gym.wrappers import Monitor
 
 os.environ.setdefault('PATH', '')
 cv2.ocl.setUseOpenCL(False)
@@ -302,4 +303,5 @@ def construct_env(env, episode_life=True, clip_rewards=True, frame_stack=False):
         env = ClipRewardEnv(env)
     if frame_stack:
         env = FrameStack(env, 4)
+    env = gym.wrappers.Monitor(env, "./video", video_callable=lambda episode_id: episode_id % 500 == 0, force=True)
     return env

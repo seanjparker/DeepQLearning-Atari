@@ -130,11 +130,10 @@ def learn(env,
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
             obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
-            weights, batch_idxes = np.ones_like(rewards), None
+            weights, batch_idxes = tf.ones_like(rewards), None
 
             obses_t, obses_tp1 = tf.constant(obses_t), tf.constant(obses_tp1)
             actions, rewards, dones = tf.constant(actions), tf.constant(rewards), tf.constant(dones)
-            weights = tf.constant(weights)
             td_errors = model.train(obses_t, actions, rewards, obses_tp1, dones, weights)
 
         if t > learning_starts and t % target_network_update_freq == 0:

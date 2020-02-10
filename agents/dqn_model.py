@@ -105,8 +105,8 @@ class DeepQ(tf.Module):
         deterministic_actions = tf.argmax(q_values, axis=1)
         batch_size = tf.shape(obs)[0]
         random_actions = tf.random.uniform(tf.stack([batch_size]), minval=0, maxval=self.num_actions, dtype=tf.int64)
-        chose_random = tf.random.uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < self.eps
-        stochastic_actions = tf.where(chose_random, random_actions, deterministic_actions)
+        choose_random = tf.random.uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < self.eps
+        stochastic_actions = tf.where(choose_random, random_actions, deterministic_actions)
 
         if stochastic:
             output_actions = stochastic_actions

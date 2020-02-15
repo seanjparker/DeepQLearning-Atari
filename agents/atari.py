@@ -291,7 +291,7 @@ def make_atari(env_id, max_episode_steps=None):
     return env
 
 
-def construct_env(env, episode_life=True, clip_rewards=True, frame_stack=False):
+def construct_env(env, episode_life=True, clip_rewards=True, frame_stack=False, record_video=False):
     """Configure environment for DeepMind-style Atari.
     """
     if episode_life:
@@ -303,5 +303,6 @@ def construct_env(env, episode_life=True, clip_rewards=True, frame_stack=False):
         env = ClipRewardEnv(env)
     if frame_stack:
         env = FrameStack(env, 4)
-    env = gym.wrappers.Monitor(env, "./video", video_callable=lambda episode_id: episode_id % 500 == 0, force=True)
+    if record_video:
+        env = gym.wrappers.Monitor(env, "./video", video_callable=lambda episode_id: episode_id % 500 == 0, force=True)
     return env

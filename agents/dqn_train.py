@@ -8,6 +8,8 @@ from replay_memory import ReplayMemory
 from dqn_model import DeepQ
 from dqn_model_builder import build_q_func
 
+import datetime
+
 
 def learn(env,
           network,
@@ -92,6 +94,10 @@ def learn(env,
         ckpt.restore(manager.latest_checkpoint)
         print("Restoring from {}".format(manager.latest_checkpoint))
 
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+
     # Create the replay buffer
     replay_buffer = ReplayMemory(buffer_size)
     # Create the schedule for exploration starting from 1.
@@ -114,13 +120,13 @@ def learn(env,
         action, _, _, _ = model.step(tf.constant(obs), update_eps=update_eps)
         action = action[0].numpy()
         reset = False
-        new_obs, rew, done, _ = env.step(action)
+        new_obs, reward, done, _ = env.step(action)
         # Store transition in the replay buffer.
         new_obs = np.expand_dims(np.array(new_obs), axis=0)
-        replay_buffer.add(obs[0], action, rew, new_obs[0], float(done))
+        replay_buffer.add(obs[0], action, reward, new_obs[0], float(done))
         obs = new_obs
 
-        episode_rewards[-1] += rew
+        episode_rewards[-1] += reward
         if done:
             obs = env.reset()
             obs = np.expand_dims(np.array(obs), axis=0)
@@ -134,19 +140,26 @@ def learn(env,
 
             obses_t, obses_tp1 = tf.constant(obses_t), tf.constant(obses_tp1)
             actions, rewards, dones = tf.constant(actions), tf.constant(rewards), tf.constant(dones)
-            td_errors = model.train(obses_t, actions, rewards, obses_tp1, dones, weights)
+            td_loss = model.train(obses_t, actions, rewards, obses_tp1, dones, weights)
 
         if t > learning_starts and t % target_network_update_freq == 0:
-            # Update target network periodically.
+            # Update target network every target_network_update_freq steps
             model.update_target()
 
         mean_100ep_reward = np.round(np.mean(episode_rewards[-101:-1]), 1)
         num_episodes = len(episode_rewards)
-        if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
+        if done and print_freq is not None and num_episodes % print_freq == 0:
             format_str = "steps: {}, episodes: {}, mean 100 ep reward: {}, %time spent expl: {}"
             print(format_str.format(t, num_episodes, mean_100ep_reward, int(100 * exploration.value(t))))
 
+            with train_summary_writer.as_default():
+                tf.summary.scalar('loss', model.train_loss_metrics.result(), step=t)
+                tf.summary.scalar('reward', reward, step=t)
+
         if done and checkpoint_path is not None and t % checkpoint_freq == 0:
             manager.save()
+
+        # Every training step, reset the loss metric
+        model.train_loss_metrics.reset_states()
 
     return model.q_network

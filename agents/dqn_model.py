@@ -90,13 +90,15 @@ class DeepQ(tf.Module):
         self.grad_norm_clipping = grad_norm_clipping
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate)
+        self.loss = huber_loss
+        self.train_loss_metrics = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
 
         with tf.name_scope('q_network'):
             self.q_network = model_builder(observation_shape, num_actions)
         with tf.name_scope('target_q_network'):
             self.target_q_network = model_builder(observation_shape, num_actions)
 
-        self.q_network.compile(optimizer=self.optimizer, loss=huber_loss)
+        self.q_network.compile(optimizer=self.optimizer, loss=self.loss)
         self.eps = tf.Variable(0., name="eps")
 
     @tf.function()
@@ -133,11 +135,11 @@ class DeepQ(tf.Module):
 
             q_t_selected_target = rewards + self.gamma * q_tp1_best_masked
 
-            td_error = q_t_selected - tf.stop_gradient(q_t_selected_target)
-            errors = huber_loss(td_error)
-            weighted_error = tf.reduce_mean(importance_weights * errors)
+            td_loss = q_t_selected - tf.stop_gradient(q_t_selected_target)
+            losses = huber_loss(td_loss)
+            weighted_loss = tf.reduce_mean(importance_weights * losses)
 
-        grads = tape.gradient(weighted_error, self.q_network.trainable_variables)
+        grads = tape.gradient(weighted_loss, self.q_network.trainable_variables)
         if self.grad_norm_clipping:
             clipped_grads = []
             for grad in grads:
@@ -146,7 +148,9 @@ class DeepQ(tf.Module):
         grads_and_vars = zip(grads, self.q_network.trainable_variables)
         self.optimizer.apply_gradients(grads_and_vars)
 
-        return td_error
+        # Log the training loss for the current step using tensorboard
+        self.train_loss_metrics(td_loss)
+        return td_loss
 
     @tf.function(autograph=False)
     def update_target(self):

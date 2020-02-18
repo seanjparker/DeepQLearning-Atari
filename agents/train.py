@@ -4,7 +4,7 @@ from atari import make_atari, construct_env
 
 
 def main():
-    env = make_atari('PongNoFrameskip-v4')
+    env = make_atari('BreakoutNoFrameskip-v4')
     env = construct_env(env, frame_stack=True)
 
     model = learn(
@@ -24,7 +24,7 @@ def main():
         checkpoint_path='./checkpoints/'
     )
 
-    model.save('./saved_model/dqn_pong/')
+    model.save('./saved_model/dqn_breakout/')
     env.close()
 
 

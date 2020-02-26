@@ -10,29 +10,23 @@ socket.on('connect', function() {
 });
 
 socket.on('update', function(data) {
-    redraw(JSON.parse(data));
+    const data_as_json = JSON.parse(data);
+    redraw(data_as_json);
+    updateQValueGraph(data_as_json['layers'][3]);
 });
 
 socket.on('layers_update', function(data) {
     if (setupDone || !data || typeof data !== 'object') return;
     setupDone = true;
-    const container = document.getElementById('container');
-    let frag = document.createDocumentFragment(),
-    select = document.createElement('select');
-    select.id = 'layerSelect';
-
+    const select = document.getElementById('layerSelect');
     data.forEach((layer, index) => {
         select.options.add(new Option(layer, index))
     });
 
-    frag.append(select);
-    container.appendChild(frag);
-
-    const changedText = document.getElementById('layerSelect');
     function layerList(){
         layerShowing = Number(this.value);
     }
-    changedText.onchange = layerList;
+    select.onchange = layerList;
 });
 
 function start() {

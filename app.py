@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import json
+import math
 from copy import deepcopy
 
 from tensorflow.keras.models import Model
@@ -43,7 +44,9 @@ class ModelEnv:
             new_obs = env.reset()
             new_obs = np.expand_dims(np.array(new_obs), axis=0)
 
-        return construct_json(activations[3:6], self.layer_names[3:6], new_obs[0, :, :, 0])
+        # # Shape (210, 160, 3)
+        # org_obs = env.unwrapped.ale.getScreenRGB2()
+        return construct_json(activations[3:6], activations[9:10], self.layer_names[3:6], new_obs[0, :, :, 0])
 
 
 to_send_template = {
@@ -56,6 +59,7 @@ to_send_template = {
 }
 layer_template = {
     'name': None,
+    'type': 'img',
     'col': 8,
     'row': 4,
     'output_shape': 20,
@@ -63,15 +67,29 @@ layer_template = {
 }
 
 
-def construct_json(activations, layer_names, new_obs):
+def construct_json(activations, output_pred, layer_names, new_obs):
     to_send = deepcopy(to_send_template)
+    # to_send['src']['data'] = org_obs.ravel().tolist()
     to_send['src']['data'] = new_obs.ravel().tolist()
+
     for layer_index in range(len(activations)):
         temp = deepcopy(layer_template)
         temp['name'] = layer_names[layer_index]
-        for i in range(activations[layer_index].shape[-1]):
-            temp['layer_data'].append((activations[layer_index][..., i][0] * 255).astype(int)[:, :].ravel().tolist())
+        number_of_filters = activations[layer_index].shape[-1]
+        # Adds each filter of the current layer, converts from [0, 1] to [0, 255] and converts to a list
+        for i in range(number_of_filters):
+            temp['layer_data'].append((activations[layer_index][..., i] * 255).astype(int).ravel().tolist())
         to_send['layers'].append(temp)
+
+        # Get the filter shape (assuming it is square)
+        temp['output_shape'] = int(math.sqrt(len(temp['layer_data'][0])))
+        temp['row'] = int(number_of_filters / temp['col'])
+
+    q_values = deepcopy(layer_template)
+    q_values['type'] = 'chart'
+    q_values['layer_data'] = output_pred[0].tolist()[0]
+    q_values['labels'] = tf_model.env.unwrapped.get_action_meanings()
+    to_send['layers'].append(q_values)
     return json.dumps(to_send)
 
 

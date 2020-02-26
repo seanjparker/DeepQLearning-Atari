@@ -21,22 +21,21 @@ def learn(env,
           train_freq=1,
           batch_size=32,
           print_freq=1,
-          checkpoint_freq=10000,
+          checkpoint_freq=100000,
           checkpoint_path=None,
           learning_starts=1000,
           gamma=1.0,
           target_network_update_freq=500,
           **network_kwargs) -> tf.keras.Model:
-    """Train a deepq model.
+    """Train a DQN model.
 
     Parameters
     -------
     env: gym.Env
-        environment to train on
+        openai gym
     network: string or a function
         neural network to use as a q function approximator. If string, has to be one of the names of registered models
-        in agents.dqn_model_builder (conv_only). If a function, should take an observation tensor and
-        return a latent variable tensor, which will be mapped to the Q function heads
+        in agents.dqn_model_builder (conv_only)
     learning_rate: float
         learning rate for adam optimizer
     total_timesteps: int
@@ -56,11 +55,9 @@ def learn(env,
         how often to print out training progress
         set to None to disable printing
     checkpoint_freq: int
-        how often to save the model. This is so that the best version is restored
-        at the end of the training. If you do not wish to restore the best version at
-        the end of the training set this variable to None.
+        how often to store a checkpoint during training
     checkpoint_path: str
-        the os path where to store the checkpoints on the system
+        the fs path for storing the checkpoints
     learning_starts: int
         how many steps of the model to collect transitions for before learning starts
     gamma: float
@@ -156,7 +153,7 @@ def learn(env,
                 tf.summary.scalar('loss', model.train_loss_metrics.result(), step=t)
                 tf.summary.scalar('reward', reward, step=t)
 
-        if done and checkpoint_path is not None and t % checkpoint_freq == 0:
+        if checkpoint_path is not None and t % checkpoint_freq == 0:
             manager.save()
 
         # Every training step, reset the loss metric

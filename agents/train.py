@@ -9,8 +9,7 @@ def main():
 
     model = learn(
         env,
-        "conv_only",
-        convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
+        conv_layers=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         learning_rate=1e-4,
         total_timesteps=int(1e7),

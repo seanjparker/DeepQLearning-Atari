@@ -12,7 +12,7 @@ import datetime
 
 
 def learn(env,
-          network,
+          conv_layers,
           learning_rate=5e-4,
           total_timesteps=100000,
           buffer_size=50000,
@@ -21,22 +21,20 @@ def learn(env,
           train_freq=1,
           batch_size=32,
           print_freq=1,
-          checkpoint_freq=10000,
+          checkpoint_freq=100000,
           checkpoint_path=None,
           learning_starts=1000,
           gamma=1.0,
           target_network_update_freq=500,
           **network_kwargs) -> tf.keras.Model:
-    """Train a deepq model.
+    """Train a DQN model.
 
     Parameters
     -------
     env: gym.Env
-        environment to train on
-    network: string or a function
-        neural network to use as a q function approximator. If string, has to be one of the names of registered models
-        in agents.dqn_model_builder (conv_only). If a function, should take an observation tensor and
-        return a latent variable tensor, which will be mapped to the Q function heads
+        openai gym
+    conv_layers: list
+        a list of triples that defines the conv network
     learning_rate: float
         learning rate for adam optimizer
     total_timesteps: int
@@ -56,26 +54,22 @@ def learn(env,
         how often to print out training progress
         set to None to disable printing
     checkpoint_freq: int
-        how often to save the model. This is so that the best version is restored
-        at the end of the training. If you do not wish to restore the best version at
-        the end of the training set this variable to None.
+        how often to store a checkpoint during training
     checkpoint_path: str
-        the os path where to store the checkpoints on the system
+        the fs path for storing the checkpoints
     learning_starts: int
         how many steps of the model to collect transitions for before learning starts
     gamma: float
         discount factor
     target_network_update_freq: int
         update the target network every `target_network_update_freq` steps.
-    **network_kwargs
-        additional keyword arguments to pass to the network builder.
 
     Returns
     -------
     model: an instance tf.Module that contains the trained model
     """
     # Create all the functions necessary to train the model
-    q_func = build_q_func(network, **network_kwargs)
+    q_func = build_q_func(conv_layers, **network_kwargs)
 
     model = DeepQ(
         model_builder=q_func,

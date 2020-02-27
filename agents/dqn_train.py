@@ -156,7 +156,7 @@ def learn(env,
                 tf.summary.scalar('loss', model.train_loss_metrics.result(), step=t)
                 tf.summary.scalar('reward', episode_rewards[-2], step=t)
 
-        if done and checkpoint_path is not None and t % checkpoint_freq == 0:
+        if checkpoint_path is not None and t % checkpoint_freq == 0:
             manager.save()
 
         # Every training step, reset the loss metric

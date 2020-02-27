@@ -12,7 +12,7 @@ import datetime
 
 
 def learn(env,
-          network,
+          conv_layers,
           learning_rate=5e-4,
           total_timesteps=100000,
           buffer_size=50000,
@@ -33,9 +33,8 @@ def learn(env,
     -------
     env: gym.Env
         openai gym
-    network: string or a function
-        neural network to use as a q function approximator. If string, has to be one of the names of registered models
-        in agents.dqn_model_builder (conv_only)
+    conv_layers: list
+        a list of triples that defines the conv network
     learning_rate: float
         learning rate for adam optimizer
     total_timesteps: int
@@ -64,15 +63,13 @@ def learn(env,
         discount factor
     target_network_update_freq: int
         update the target network every `target_network_update_freq` steps.
-    **network_kwargs
-        additional keyword arguments to pass to the network builder.
 
     Returns
     -------
     model: an instance tf.Module that contains the trained model
     """
     # Create all the functions necessary to train the model
-    q_func = build_q_func(network, **network_kwargs)
+    q_func = build_q_func(conv_layers, **network_kwargs)
 
     model = DeepQ(
         model_builder=q_func,

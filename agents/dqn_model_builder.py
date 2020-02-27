@@ -14,7 +14,7 @@ def conv(convs=None, **conv_kwargs):
     if convs is None:
         convs = [(32, 8, 4), (64, 4, 2), (64, 3, 1)]
 
-    def network_fn(input_shape):
+    def network_builder(input_shape):
         x_input = tf.keras.Input(shape=input_shape, dtype=tf.uint8)
         h = tf.cast(x_input, tf.float32) / 255.0
         with tf.name_scope("convnet"):
@@ -25,14 +25,13 @@ def conv(convs=None, **conv_kwargs):
 
         network = tf.keras.Model(inputs=[x_input], outputs=[h])
         return network
-    return network_fn
+    return network_builder
 
 
-def build_q_func(network, hiddens=None, **network_kwargs):
+def build_q_func(network, hiddens=None):
     if hiddens is None:
         hiddens = [256]
-    if isinstance(network, str):
-        network = conv(network)(**network_kwargs)
+    network = conv(convs=network)
 
     def q_func_builder_func(input_shape, num_actions) -> tf.keras.Model:
         # the model (built using the functional API) that is just for the Q-Network function approximator

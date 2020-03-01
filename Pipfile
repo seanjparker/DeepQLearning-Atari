@@ -14,9 +14,11 @@ pandas = "*"
 jupyter = "*"
 absl-py = "*"
 scikit-image = "*"
-tqdm = "*"
-tensorflow = "*"
 opencv-python = "*"
+eventlet = "*"
+flask-socketio = "*"
+flask = "*"
+tf-nightly = "*"
 
 [requires]
 python_version = "3.7"

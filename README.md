@@ -4,8 +4,8 @@
 $ python3 app.py
 ```
 
-## Begin training
+## Begin training (DQN)
 
 ```
-$ python3 agents/train.py
+$ python3 agents/dqn/train.py
 ```

@@ -2,6 +2,5 @@
 summary
 logs
 agents/__pycache__
-agents/.ipynb_checkpoints
-agents/gym_test/.ipynb_checkpoints/
+agents/notebooks/.ipynb_checkpoints/
 checkpoints

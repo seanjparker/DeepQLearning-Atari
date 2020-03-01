@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from tensorflow.keras.models import Model
 
-from agents.atari import construct_env, make_atari
+from agents.utils.atari import construct_env, make_atari
 
 from flask import Flask, render_template
 from flask_socketio import SocketIO
@@ -27,26 +27,35 @@ class ModelEnv:
         self.model: Model = _model
         self.layer_names = [layer.name for layer in self.model.layers]
         self.frames = deque([], maxlen=4)
+
         obs = self.env.reset()
         obs = np.expand_dims(np.array(obs), axis=0)
-        self.frames.append(obs)
-        self.frames.append(obs)
-        self.frames.append(obs)
-        self.frames.append(obs)
+        self.frames.extend([obs] * 4)
+
+        self.avaliable_models = ['Pong', 'Breakout', 'SpaceInvaders']
 
     def step(self):
-        activations = activation_model.predict(np.concatenate(self.frames, axis=-1))
+        activations = self.model.predict(np.concatenate(self.frames, axis=-1))
         action = tf.argmax(activations[9][0])
-        new_obs, _, done, _ = env.step(action.numpy())
+        new_obs, _, done, _ = self.env.step(action.numpy())
         new_obs = np.expand_dims(np.array(new_obs), axis=0)
         self.frames.append(new_obs)
         if done:
-            new_obs = env.reset()
+            new_obs = self.env.reset()
             new_obs = np.expand_dims(np.array(new_obs), axis=0)
 
         # # Shape (210, 160, 3)
         # org_obs = env.unwrapped.ale.getScreenRGB2()
-        return construct_json(activations[3:6], activations[9:10], self.layer_names[3:6], new_obs[0, :, :, 0])
+        return construct_json(activations[3:6], activations[9], self.layer_names[3:6], new_obs[0, :, :, 0])
+
+    def reset(self, new_env, new_model):
+        self.env = new_env
+        self.model = new_model
+        self.frames = deque([], maxlen=4)
+
+        obs = self.env.reset()
+        obs = np.expand_dims(np.array(obs), axis=0)
+        self.frames.extend([obs] * 4)
 
 
 to_send_template = {
@@ -69,7 +78,6 @@ layer_template = {
 
 def construct_json(activations, output_pred, layer_names, new_obs):
     to_send = deepcopy(to_send_template)
-    # to_send['src']['data'] = org_obs.ravel().tolist()
     to_send['src']['data'] = new_obs.ravel().tolist()
 
     for layer_index in range(len(activations)):
@@ -87,22 +95,24 @@ def construct_json(activations, output_pred, layer_names, new_obs):
 
     q_values = deepcopy(layer_template)
     q_values['type'] = 'chart'
-    q_values['layer_data'] = output_pred[0].tolist()[0]
+    q_values['layer_data'] = output_pred[0].tolist()
     q_values['labels'] = tf_model.env.unwrapped.get_action_meanings()
     to_send['layers'].append(q_values)
     return json.dumps(to_send)
 
 
-def create_env():
-    created_env = make_atari('BreakoutNoFrameskip-v4')
+def create_env(game_name):
+    created_env = make_atari(game_name + 'NoFrameskip-v4')
     final_env = construct_env(created_env)
     return final_env
 
 
-def load_tf_model_and_env():
-    loaded_model = tf.keras.models.load_model('saved_model/dqn_breakout')
+def load_tf_model_and_env(game_name):
+    # Ensure the first letter is lowercase for loading the model
+    game_name_model_load = game_name[0].lower() + game_name[1:]
+    loaded_model = tf.keras.models.load_model('saved_model/dqn_' + game_name_model_load)
     loaded_model.summary()
-    return loaded_model, create_env()
+    return loaded_model, create_env(game_name)
 
 
 def create_activation_model(loaded_model):
@@ -121,10 +131,23 @@ def step_env():
     socketio.emit('update', step_data)
 
 
+@socketio.on('switchModel')
+def switch_model(data):
+    new_model_index = int(data['new_model'])
+    new_model_name = tf_model.avaliable_models[new_model_index]
+    new_model, new_env = load_tf_model_and_env(new_model_name)
+    new_activation_model = create_activation_model(new_model)
+
+    tf_model.reset(new_env, new_activation_model)
+    step_env()
+
+
 @socketio.on('connect')
 def connect():
-    print('sending model layers back')
-    socketio.emit('layers_update', tf_model.layer_names[3:6])
+    socketio.emit('layers_update', {
+        'layer_names': tf_model.layer_names[3:6],
+        'model_names': tf_model.avaliable_models
+    })
 
 
 @socketio.on('disconnect')
@@ -133,7 +156,7 @@ def disconnect():
 
 
 if __name__ == '__main__':
-    model, env = load_tf_model_and_env()
+    model, env = load_tf_model_and_env('Pong')
     activation_model = create_activation_model(model)
     tf_model = ModelEnv(env, activation_model)
     socketio.run(app)

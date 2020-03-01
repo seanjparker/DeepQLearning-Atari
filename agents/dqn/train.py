@@ -1,6 +1,5 @@
-import tensorflow as tf
-from dqn_train import learn
-from atari import make_atari, construct_env
+from dqn.dqn_train import learn
+from utils.atari import make_atari, construct_env
 
 
 def main():

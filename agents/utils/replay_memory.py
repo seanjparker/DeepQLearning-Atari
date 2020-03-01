@@ -10,32 +10,34 @@ class ReplayMemory:
         return len(self.buffer)
 
     def add(self, obs, action, reward, next_obs, done):
-        experience = (obs, action, reward, next_obs, done)
-        self.buffer.append(experience)
+        # Store the sample (s, a, r, s', d) sample in replay memory
+        self.buffer.append((obs, action, reward, next_obs, done))
 
-    def encode_samples(self, indexes):
-        obses, actions, rewards, next_obses, dones = [], [], [], [], []
+    def get_samples_from_indexes(self, indexes) -> [np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        obs, actions, rewards, obs_t1, dones = [], [], [], [], []
         data = self.buffer[0]
         obs_dtype = data[0].dtype
         action_dtype = data[1].dtype
 
         for i in indexes:
             data = self.buffer[i]
-            obs, action, reward, next_obs, done = data
-            obses.append(np.array(obs, copy=False))
+            obs_t, action, reward, obs_t1, done = data
+
+            # copy = False, to prevent creating copies of all the objects in the memory!
+            obs.append(np.array(obs_t, copy=False))
             actions.append(np.array(action, copy=False))
             rewards.append(reward)
-            next_obses.append(np.array(next_obs, copy=False))
+            obs_t1.append(np.array(obs_t1, copy=False))
             dones.append(done)
 
-        return np.array(obses, dtype=obs_dtype), \
+        return np.array(obs, dtype=obs_dtype), \
             np.array(actions, dtype=action_dtype), \
             np.array(rewards, dtype=np.float32), \
-            np.array(next_obses, dtype=obs_dtype), \
+            np.array(obs_t1, dtype=obs_dtype), \
             np.array(dones, dtype=np.float32)
 
     def sample(self, batch_size):
         buffer_size = len(self.buffer)
         indexs = np.random.choice(np.arange(buffer_size), size=batch_size)
 
-        return self.encode_samples(indexs)
+        return self.get_samples_from_indexes(indexs)

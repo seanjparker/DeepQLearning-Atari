@@ -3,10 +3,10 @@ import os.path as osp
 import tensorflow as tf
 import numpy as np
 
-from schedule import LinearSchedule
-from replay_memory import ReplayMemory
-from dqn_model import DeepQ
-from dqn_model_builder import build_q_func
+from utils.schedule import LinearSchedule
+from utils.replay_memory import ReplayMemory
+from dqn.dqn_model import DeepQ
+from dqn.dqn_model_builder import build_q_func
 
 import datetime
 
@@ -76,7 +76,6 @@ def learn(env,
         observation_shape=env.observation_space.shape,
         num_actions=env.action_space.n,
         learning_rate=learning_rate,
-        grad_norm_clipping=10,
         gamma=gamma
     )
 

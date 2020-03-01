@@ -16,11 +16,10 @@ class DeepQ(tf.Module):
     Class that handles training a DQN
     """
     def __init__(self, model_builder: Callable[[Any, Any], tf.keras.Model], observation_shape, num_actions,
-                 learning_rate, grad_norm_clipping=None, gamma=1.0):
+                 learning_rate, gamma=1.0):
         super().__init__()
         self.num_actions = num_actions
         self.gamma = gamma
-        self.grad_norm_clipping = grad_norm_clipping
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate)
         self.loss = huber_loss
@@ -130,11 +129,6 @@ class DeepQ(tf.Module):
 
         # Compute the gradients from the gradient tape
         grads = tape.gradient(weighted_loss, self.q_network.trainable_variables)
-        if self.grad_norm_clipping:
-            clipped_grads = []
-            for grad in grads:
-                clipped_grads.append(tf.clip_by_norm(grad, self.grad_norm_clipping))
-            grads = clipped_grads
         grads_and_vars = zip(grads, self.q_network.trainable_variables)
         self.optimizer.apply_gradients(grads_and_vars)
 

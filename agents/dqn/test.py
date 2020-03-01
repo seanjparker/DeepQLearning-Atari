@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from atari import make_atari, construct_env
+from utils.atari import make_atari, construct_env
 
 
 def test(env_name='PongNoFrameskip-v4', load_path=None):

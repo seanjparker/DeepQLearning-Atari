@@ -12,9 +12,7 @@ let canvas_buffer = document.createElement("canvas");
 let ctx_buffer = canvas_buffer.getContext("2d");
 
 function redraw(data_as_json) {
-    console.log(data_as_json);
     let top_offset = 30;
-
 
     let data = data_as_json['src'].data;
     const src_width = data_as_json['src']['width'];

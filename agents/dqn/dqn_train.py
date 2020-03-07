@@ -11,22 +11,22 @@ from dqn.dqn_model_builder import build_q_func
 import datetime
 
 
-def learn(env,
-          conv_layers,
-          learning_rate=5e-4,
-          total_timesteps=100000,
-          buffer_size=50000,
-          exploration_fraction=0.1,
-          exploration_final_eps=0.02,
-          train_freq=1,
-          batch_size=32,
-          print_freq=1,
-          checkpoint_freq=100000,
-          checkpoint_path=None,
-          learning_starts=1000,
-          gamma=1.0,
-          target_network_update_freq=500,
-          **network_kwargs) -> tf.keras.Model:
+def train_model(env,
+                conv_layers,
+                learning_rate=5e-4,
+                total_timesteps=100000,
+                buffer_size=50000,
+                exploration_fraction=0.1,
+                exploration_final_eps=0.02,
+                train_freq=1,
+                batch_size=32,
+                print_freq=1,
+                checkpoint_freq=100000,
+                checkpoint_path=None,
+                learning_starts=1000,
+                gamma=1.0,
+                target_network_update_freq=500,
+                **network_kwargs) -> tf.keras.Model:
     """Train a DQN model.
 
     Parameters
@@ -66,12 +66,11 @@ def learn(env,
 
     Returns
     -------
-    model: an instance tf.Module that contains the trained model
+    dqn: an instance of tf.Module that contains the trained model
     """
-    # Create all the functions necessary to train the model
     q_func = build_q_func(conv_layers, **network_kwargs)
 
-    model = DeepQ(
+    dqn = DeepQ(
         model_builder=q_func,
         observation_shape=env.observation_space.shape,
         num_actions=env.action_space.n,
@@ -82,7 +81,7 @@ def learn(env,
     manager = None
     if checkpoint_path is not None:
         load_path = osp.expanduser(checkpoint_path)
-        ckpt = tf.train.Checkpoint(model=model.q_network)
+        ckpt = tf.train.Checkpoint(model=dqn.q_network)
         manager = tf.train.CheckpointManager(ckpt, load_path, max_to_keep=5)
         ckpt.restore(manager.latest_checkpoint)
         print("Restoring from {}".format(manager.latest_checkpoint))
@@ -98,7 +97,7 @@ def learn(env,
                                  initial_p=1.0,
                                  final_p=exploration_final_eps)
 
-    model.update_target()
+    dqn.update_target()
 
     episode_rewards = [0.0]
     saved_mean_reward = None
@@ -110,7 +109,7 @@ def learn(env,
     for t in range(total_timesteps):
         update_eps = tf.constant(exploration.value(t))
         update_param_noise_threshold = 0.
-        action, _, _, _ = model.step(tf.constant(obs), update_eps=update_eps)
+        action, _, _, _ = dqn.step(tf.constant(obs), update_eps=update_eps)
         action = action[0].numpy()
         reset = False
         new_obs, reward, done, _ = env.step(action)
@@ -129,30 +128,31 @@ def learn(env,
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
             obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
-            weights, batch_idxes = tf.ones_like(rewards), None
+            weights, _ = tf.ones_like(rewards), None
 
             obses_t, obses_tp1 = tf.constant(obses_t), tf.constant(obses_tp1)
             actions, rewards, dones = tf.constant(actions), tf.constant(rewards), tf.constant(dones)
-            td_loss = model.train(obses_t, actions, rewards, obses_tp1, dones, weights)
+            td_loss = dqn.train(obses_t, actions, rewards, obses_tp1, dones, weights)
 
         if t > learning_starts and t % target_network_update_freq == 0:
             # Update target network every target_network_update_freq steps
-            model.update_target()
+            dqn.update_target()
 
         mean_100ep_reward = np.round(np.mean(episode_rewards[-101:-1]), 1)
         num_episodes = len(episode_rewards)
         if done and print_freq is not None and num_episodes % print_freq == 0:
             format_str = "steps: {}, episodes: {}, mean 100 ep reward: {}, episode reward: {}, %time spent expl: {}"
-            print(format_str.format(t, num_episodes, mean_100ep_reward, episode_rewards[-2], int(100 * exploration.value(t))))
+            print(format_str.format(t, num_episodes, mean_100ep_reward, episode_rewards[-2],
+                                    int(100 * exploration.value(t))))
 
             with train_summary_writer.as_default():
-                tf.summary.scalar('loss', model.train_loss_metrics.result(), step=t)
+                tf.summary.scalar('loss', dqn.train_loss_metrics.result(), step=t)
                 tf.summary.scalar('reward', episode_rewards[-2], step=t)
 
         if checkpoint_path is not None and t % checkpoint_freq == 0:
             manager.save()
 
         # Every training step, reset the loss metric
-        model.train_loss_metrics.reset_states()
+        dqn.train_loss_metrics.reset_states()
 
-    return model.q_network
+    return dqn.q_network

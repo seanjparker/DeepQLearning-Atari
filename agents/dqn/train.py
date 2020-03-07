@@ -1,4 +1,4 @@
-from dqn.dqn_train import learn
+from dqn.dqn_train import train_model
 from utils.atari import make_atari, construct_env
 
 
@@ -6,7 +6,7 @@ def main():
     env = make_atari('BreakoutNoFrameskip-v4')
     env = construct_env(env, frame_stack=True)
 
-    model = learn(
+    model = train_model(
         env,
         conv_layers=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],

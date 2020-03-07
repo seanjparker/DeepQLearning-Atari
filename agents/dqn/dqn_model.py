@@ -21,7 +21,7 @@ class DeepQ(tf.Module):
         self.num_actions = num_actions
         self.gamma = gamma
 
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         self.loss = huber_loss
         self.train_loss_metrics = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
 
@@ -67,7 +67,7 @@ class DeepQ(tf.Module):
 
     @tf.function()
     def train(self, obs0, actions, rewards, obs1, dones, weights):
-        """Function that takes a transition (s, a, r, s') and optimizes for the Bellman equation
+        """Function that takes a transition (s, a, r, s') and optimises for the Bellman equation
 
         where d is a boolean that represents if the episode is done
 

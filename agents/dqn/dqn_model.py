@@ -15,7 +15,7 @@ class DeepQ(tf.Module):
     """
     Class that handles training a DQN
     """
-    def __init__(self, model_builder: Callable[[Any, Any], tf.keras.Model], observation_shape, num_actions,
+    def __init__(self, model_builder: Callable[[Any, Any, Any], tf.keras.Model], observation_shape, num_actions,
                  learning_rate, gamma=1.0):
         super().__init__()
         self.num_actions = num_actions
@@ -25,10 +25,8 @@ class DeepQ(tf.Module):
         self.loss = huber_loss
         self.train_loss_metrics = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
 
-        with tf.name_scope('q_network'):
-            self.q_network = model_builder(observation_shape, num_actions)
-        with tf.name_scope('target_q_network'):
-            self.target_q_network = model_builder(observation_shape, num_actions)
+        self.q_network = model_builder(observation_shape, num_actions, 'q_network')
+        self.target_q_network = model_builder(observation_shape, num_actions, 'target_q_network')
 
         self.q_network.compile(optimizer=self.optimizer, loss=self.loss)
         self.eps = tf.Variable(0.0, name="eps")

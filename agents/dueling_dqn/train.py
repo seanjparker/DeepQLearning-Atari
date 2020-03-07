@@ -1,10 +1,10 @@
 from dueling_dqn.ddqn_train import train_model
-from utils.atari import make_atari, construct_env
+from utils.atari import construct_env
 
 
 def main():
-    env = make_atari('BreakoutNoFrameskip-v4')
-    env = construct_env(env, frame_stack=True)
+    env = construct_env('BreakoutNoFrameskip-v4', frame_stack=True,
+                        record_video=True, record_video_steps=500, frame_skip=4)
 
     model = train_model(
         env,
@@ -12,9 +12,10 @@ def main():
         hiddens=[256],
         learning_rate=1e-4,
         total_timesteps=int(1e7),
-        buffer_size=100000,
+        buffer_size=50000,
         exploration_fraction=0.1,
         exploration_final_eps=0.01,
+        batch_size=32,
         train_freq=4,
         learning_starts=10000,
         target_network_update_freq=1000,

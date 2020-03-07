@@ -283,19 +283,15 @@ class TimeLimit(gym.Wrapper):
         return self.env.reset(**kwargs)
 
 
-def make_atari(env_id, max_episode_steps=None):
+def construct_env(env_id, episode_life=True, clip_rewards=True, frame_stack=False, record_video=False,
+                  record_video_steps=500, max_episode_steps=None, frame_skip=4):
     env = gym.make(env_id)
     assert 'NoFrameskip' in env.spec.id
+
     env = NoopResetEnv(env, noop_max=30)
-    env = MaxAndSkipEnv(env, skip=4)
+    env = MaxAndSkipEnv(env, skip=frame_skip)
     if max_episode_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
-    return env
-
-
-def construct_env(env, episode_life=True, clip_rewards=True, frame_stack=False, record_video=False):
-    """Configure environment for DeepMind-style Atari.
-    """
     if episode_life:
         env = EpisodicLifeEnv(env)
     if 'FIRE' in env.unwrapped.get_action_meanings():
@@ -306,5 +302,6 @@ def construct_env(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     if frame_stack:
         env = FrameStack(env, 4)
     if record_video:
-        env = gym.wrappers.Monitor(env, "./video", video_callable=lambda episode_id: episode_id % 500 == 0, force=True)
+        env = gym.wrappers.Monitor(env, "./video",
+                                   video_callable=lambda episode_id: episode_id % record_video_steps == 0, force=True)
     return env

@@ -1,10 +1,10 @@
-from dqn.dqn_train import train_model
-from utils.atari import make_atari, construct_env
+from .dqn_train import train_model
+from utils.atari import construct_env
 
 
-def main():
-    env = make_atari('BreakoutNoFrameskip-v4')
-    env = construct_env(env, frame_stack=True)
+def train():
+    env = construct_env('BreakoutNoFrameskip-v4', frame_stack=True,
+                        record_video=True, record_video_steps=500, frame_skip=4)
 
     model = train_model(
         env,
@@ -24,7 +24,3 @@ def main():
 
     model.save('./saved_model/dqn_breakout/')
     env.close()
-
-
-if __name__ == '__main__':
-    main()

@@ -5,8 +5,8 @@ import numpy as np
 
 from utils.schedule import LinearSchedule
 from utils.replay_memory import ReplayMemory
-from dqn.dqn_model import DeepQ
-from dqn.dqn_model_builder import build_q_func
+from .dqn_model import DeepQ
+from .dqn_model_builder import build_q_func
 
 import datetime
 

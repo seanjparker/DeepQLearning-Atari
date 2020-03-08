@@ -2,7 +2,7 @@ from dueling_dqn.ddqn_train import train_model
 from utils.atari import construct_env
 
 
-def main():
+def train():
     env = construct_env('BreakoutNoFrameskip-v4', frame_stack=True,
                         record_video=True, record_video_steps=500, frame_skip=4)
 

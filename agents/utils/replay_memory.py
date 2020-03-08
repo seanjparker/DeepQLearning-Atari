@@ -14,7 +14,7 @@ class ReplayMemory:
         self.buffer.append((obs, action, reward, next_obs, done))
 
     def get_samples_from_indexes(self, indexes) -> [np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        obs, actions, rewards, obs_t1, dones = [], [], [], [], []
+        obs0, actions, rewards, obs1, dones = [], [], [], [], []
         data = self.buffer[0]
         obs_dtype = data[0].dtype
         action_dtype = data[1].dtype
@@ -24,16 +24,16 @@ class ReplayMemory:
             obs_t, action, reward, obs_t1, done = data
 
             # copy = False, to prevent creating copies of all the objects in the memory!
-            obs.append(np.array(obs_t, copy=False))
+            obs0.append(np.array(obs_t, copy=False))
             actions.append(np.array(action, copy=False))
             rewards.append(reward)
-            obs_t1.append(np.array(obs_t1, copy=False))
+            obs1.append(np.array(obs_t1, copy=False))
             dones.append(done)
 
-        return np.array(obs, dtype=obs_dtype), \
+        return np.array(obs0, dtype=obs_dtype), \
             np.array(actions, dtype=action_dtype), \
             np.array(rewards, dtype=np.float32), \
-            np.array(obs_t1, dtype=obs_dtype), \
+            np.array(obs1, dtype=obs_dtype), \
             np.array(dones, dtype=np.float32)
 
     def sample(self, batch_size):

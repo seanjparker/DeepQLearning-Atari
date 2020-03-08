@@ -16,7 +16,7 @@ class DeepQ(tf.Module):
     Class that handles training a DQN
     """
     def __init__(self, model_builder: Callable[[Any, Any, Any], tf.keras.Model], observation_shape, num_actions,
-                 learning_rate, gamma=1.0):
+                 learning_rate, gamma=1.0, double_dqn=False):
         super().__init__()
         self.num_actions = num_actions
         self.gamma = gamma
@@ -30,6 +30,8 @@ class DeepQ(tf.Module):
 
         self.q_network.compile(optimizer=self.optimizer, loss=self.loss)
         self.eps = tf.Variable(0.0, name="eps")
+
+        self.double_dqn = double_dqn
 
     @tf.function()
     def step(self, observation, stochastic=True, update_eps=-1):
@@ -62,6 +64,17 @@ class DeepQ(tf.Module):
             self.eps.assign(update_eps)
 
         return output_actions, None, None, None
+
+    @tf.function()
+    def get_best_q_action(self, obs1, q_tp1_from_target):
+        """ Gets the best q-value, we use a different equation based on if we are using a normal dqn or double dqn
+        """
+        if self.double_dqn:
+            q_tp1_best = tf.argmax(self.q_network(obs1), 1)
+            return tf.reduce_sum(q_tp1_from_target * tf.one_hot(
+                q_tp1_best, self.num_actions, dtype=tf.float32), 1)
+        else:
+            return tf.reduce_max(q_tp1_from_target, 1)
 
     @tf.function()
     def train(self, obs0, actions, rewards, obs1, dones, weights):
@@ -111,7 +124,8 @@ class DeepQ(tf.Module):
             q_tp1 = self.target_q_network(obs1)
 
             # Get the best q-value from the target network pass
-            q_tp1_best = tf.reduce_max(q_tp1, 1)
+            # If we are using a double dqn then use find q_best based on target and q-network predictions
+            q_tp1_best = self.get_best_q_action(obs1, q_tp1)
 
             dones = tf.cast(dones, q_tp1_best.dtype)
             q_tp1_best_masked = (1.0 - dones) * q_tp1_best

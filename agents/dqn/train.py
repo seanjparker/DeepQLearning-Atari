@@ -2,7 +2,7 @@ from .dqn_train import train_model
 from utils.atari import construct_env
 
 
-def train():
+def train(use_double_dqn=False):
     env = construct_env('BreakoutNoFrameskip-v4', frame_stack=True,
                         record_video=True, record_video_steps=500, frame_skip=4)
 
@@ -19,7 +19,8 @@ def train():
         learning_starts=10000,
         target_network_update_freq=1000,
         gamma=0.99,
-        checkpoint_path='./checkpoints/'
+        checkpoint_path='./checkpoints/',
+        double_dqn=use_double_dqn
     )
 
     model.save('./saved_model/dqn_breakout/')

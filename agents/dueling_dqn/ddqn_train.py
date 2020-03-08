@@ -26,6 +26,7 @@ def train_model(env,
                 learning_starts=1000,
                 gamma=1.0,
                 target_network_update_freq=500,
+                double_dqn=False,
                 **network_kwargs) -> tf.keras.Model:
     """Train a DQN model.
 
@@ -63,7 +64,8 @@ def train_model(env,
         discount factor
     target_network_update_freq: int
         update the target network every `target_network_update_freq` steps.
-
+    double_dqn: bool
+        specifies if double q-learning is used during training
     Returns
     -------
     dqn: an instance of tf.Module that contains the trained model
@@ -75,7 +77,8 @@ def train_model(env,
         observation_shape=env.observation_space.shape,
         num_actions=env.action_space.n,
         learning_rate=learning_rate,
-        gamma=gamma
+        gamma=gamma,
+        double_dqn=double_dqn
     )
 
     manager = None

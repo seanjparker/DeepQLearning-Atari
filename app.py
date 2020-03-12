@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from tensorflow.keras.models import Model
 
-from agents.utils.atari import construct_env, make_atari
+from agents.utils.atari import construct_env
 
 from flask import Flask, render_template
 from flask_socketio import SocketIO
@@ -102,9 +102,8 @@ def construct_json(activations, output_pred, layer_names, new_obs):
 
 
 def create_env(game_name):
-    created_env = make_atari(game_name + 'NoFrameskip-v4')
-    final_env = construct_env(created_env)
-    return final_env
+    created_env = construct_env(game_name + 'NoFrameskip-v4', frame_skip=4)
+    return created_env
 
 
 def load_tf_model_and_env(game_name):

@@ -79,10 +79,7 @@ class EpisodicLifeEnv(gym.Wrapper):
         # check current lives, make loss of life terminal,
         # then update lives to handle bonus lives
         lives = self.env.unwrapped.ale.lives()
-        if lives < self.lives and lives > 0:
-            # for Qbert sometimes we stay in lives == 0 condition for a few frames
-            # so it's important to keep lives > 0, so that we only reset once
-            # the environment advertises done.
+        if self.lives > lives > 0:
             done = True
         self.lives = lives
         return obs, reward, done, info
@@ -101,30 +98,23 @@ class EpisodicLifeEnv(gym.Wrapper):
         return obs
 
 
-class MaxAndSkipEnv(gym.Wrapper):
+class SkipEnv(gym.Wrapper):
     def __init__(self, env, skip=4):
         """Return only every `skip`-th frame"""
         gym.Wrapper.__init__(self, env)
-        # most recent raw observations (for max pooling across time steps)
-        self._obs_buffer = np.zeros((2,)+env.observation_space.shape, dtype=np.uint8)
         self._skip = skip
 
     def step(self, action):
-        """Repeat action, sum reward, and max over last observations."""
+        """Repeat action, sum reward"""
         total_reward = 0.0
         done = None
         for i in range(self._skip):
             obs, reward, done, info = self.env.step(action)
-            if i == self._skip - 2: self._obs_buffer[0] = obs
-            if i == self._skip - 1: self._obs_buffer[1] = obs
             total_reward += reward
             if done:
                 break
-        # Note that the observation on the done=True frame
-        # doesn't matter
-        max_frame = self._obs_buffer.max(axis=0)
 
-        return max_frame, total_reward, done, info
+        return obs, total_reward, done, info
 
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
@@ -290,7 +280,7 @@ def construct_env(env_id, episode_life=True, clip_rewards=True, frame_stack=Fals
     assert 'NoFrameskip' in env.spec.id
 
     env = NoopResetEnv(env, noop_max=30)
-    env = MaxAndSkipEnv(env, skip=frame_skip)
+    env = SkipEnv(env, skip=frame_skip)
     if max_episode_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
     if episode_life:

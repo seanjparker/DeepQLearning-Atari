@@ -140,9 +140,9 @@ def train_model(env,
             # Update target network every target_network_update_freq steps
             dqn.update_target()
 
-        mean_100ep_reward = np.round(np.mean(episode_rewards[-101:-1]), 1)
-        num_episodes = len(episode_rewards)
+        num_episodes = len(episode_rewards) - 1
         if done and print_freq is not None and num_episodes % print_freq == 0:
+            mean_100ep_reward = np.round(np.mean(episode_rewards[-102:-2]), 1)
             format_str = "steps: {}, episodes: {}, mean 100 ep reward: {}, episode reward: {}, %time spent expl: {}"
             print(format_str.format(t, num_episodes, mean_100ep_reward, episode_rewards[-2],
                                     int(100 * exploration.value(t))))
@@ -151,10 +151,10 @@ def train_model(env,
                 tf.summary.scalar('loss', dqn.train_loss_metrics.result(), step=t)
                 tf.summary.scalar('reward', episode_rewards[-2], step=t)
 
+            # Every episode, reset the loss metric
+            dqn.train_loss_metrics.reset_states()
+
         if checkpoint_path is not None and t % checkpoint_freq == 0:
             manager.save()
-
-        # Every training step, reset the loss metric
-        dqn.train_loss_metrics.reset_states()
 
     return dqn.q_network

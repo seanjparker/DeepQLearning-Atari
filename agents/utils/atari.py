@@ -285,7 +285,8 @@ class TimeLimit(gym.Wrapper):
 
 def construct_env(env_id, episode_life=True, clip_rewards=True, frame_stack=False, record_video=False,
                   record_video_steps=500, max_episode_steps=None, frame_skip=4):
-    env = gym.make(env_id)
+    # Get the base env which disables the max_episode_steps that is built into the environment
+    env = gym.make(env_id).env
     assert 'NoFrameskip' in env.spec.id
 
     env = NoopResetEnv(env, noop_max=30)

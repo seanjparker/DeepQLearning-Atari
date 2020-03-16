@@ -30,6 +30,9 @@ function redraw(data_as_json) {
     ctx_buffer.putImageData(imgData, 0, 0);
     ctx.drawImage(canvas_buffer, 0, top_offset, 252, 252);
 
+    // Once we have drawn the game, check if we should display the model!
+    if (!displayCNN) return;
+
     // Draw the layer names
     // Clear the old names
     ctx.fillStyle = 'white';

@@ -3,6 +3,7 @@ let isRunning = false, setupDone = false;
 let layerShowing = 0;
 let currentPlayID = undefined;
 const fps = 15;
+let displayCNN = true;
 
 socket.on('connect', function() {
     socket.emit('update');
@@ -28,6 +29,10 @@ socket.on('layers_update', function(data) {
        modelSelect.options.add(new Option(model, index));
     });
 
+    const showCNN = document.getElementById('toggleCNNViz');
+    function toggleCNN() {
+        displayCNN = !displayCNN;
+    }
 
     function layerList() {
         layerShowing = Number(this.value);
@@ -35,6 +40,8 @@ socket.on('layers_update', function(data) {
     layerSelect.onchange = layerList;
 
     modelSelect.onchange = switchModel;
+
+    showCNN.onchange = toggleCNN;
 });
 
 function start() {

@@ -106,14 +106,13 @@ def train_model(env,
     obs = env.reset()
 
     obs = np.expand_dims(np.array(obs), axis=0)
-    reset = True
 
     for t in range(total_timesteps):
-        update_eps = tf.constant(exploration.value(t))
+        update_eps = exploration.step_to(t)
 
         action, _, _, _ = dqn.step(tf.constant(obs), update_eps=update_eps)
         action = action[0].numpy()
-        reset = False
+
         new_obs, reward, done, _ = env.step(action)
         # Store transition in the replay buffer.
         new_obs = np.expand_dims(np.array(new_obs), axis=0)
@@ -125,15 +124,12 @@ def train_model(env,
             obs = env.reset()
             obs = np.expand_dims(np.array(obs), axis=0)
             episode_rewards.append(0.0)
-            reset = True
 
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
             obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
             weights, _ = tf.ones_like(rewards), None
 
-            obses_t, obses_tp1 = tf.constant(obses_t), tf.constant(obses_tp1)
-            actions, rewards, dones = tf.constant(actions), tf.constant(rewards), tf.constant(dones)
             td_loss = dqn.train(obses_t, actions, rewards, obses_tp1, dones, weights)
 
         if t > learning_starts and t % target_network_update_freq == 0:
@@ -145,7 +141,7 @@ def train_model(env,
             mean_100ep_reward = np.round(np.mean(episode_rewards[-102:-2]), 1)
             format_str = "steps: {}, episodes: {}, mean 100 ep reward: {}, episode reward: {}, %time spent expl: {}"
             print(format_str.format(t, num_episodes, mean_100ep_reward, episode_rewards[-2],
-                                    int(100 * exploration.value(t))))
+                                    int(100 * exploration.step_to(t))))
 
             with train_summary_writer.as_default():
                 tf.summary.scalar('loss', dqn.train_loss_metrics.result(), step=t)
@@ -155,6 +151,7 @@ def train_model(env,
             dqn.train_loss_metrics.reset_states()
 
         if checkpoint_path is not None and t % checkpoint_freq == 0:
+            # Every so often (every checkpoint_freq steps) we store a new checkpoint
             manager.save()
 
     return dqn.q_network

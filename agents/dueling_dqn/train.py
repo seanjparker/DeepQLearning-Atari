@@ -26,7 +26,3 @@ def train(use_double_dqn=False):
 
     model.save('./saved_model/ddqn_breakout/')
     env.close()
-
-
-if __name__ == '__main__':
-    main()

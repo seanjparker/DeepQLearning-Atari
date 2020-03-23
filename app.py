@@ -32,11 +32,13 @@ class ModelEnv:
         obs = np.expand_dims(np.array(obs), axis=0)
         self.frames.extend([obs] * 4)
 
-        self.avaliable_models = ['Pong', 'Breakout', 'SpaceInvaders']
+        self.avaliable_models = ['Pong', 'Breakout']
 
     def step(self):
         activations = self.model.predict(np.concatenate(self.frames, axis=-1))
+        # print(activations[8])
         action = tf.argmax(activations[9][0])
+        # print(action)
         new_obs, _, done, _ = self.env.step(action.numpy())
         new_obs = np.expand_dims(np.array(new_obs), axis=0)
         self.frames.append(new_obs)
@@ -107,10 +109,11 @@ def create_env(game_name):
 
 
 def load_tf_model_and_env(game_name):
-    # Ensure the first letter is lowercase for loading the model
-    game_name_model_load = game_name[0].lower() + game_name[1:]
+    # Ensure the game name is lowercase for loading the model
+    game_name_model_load = game_name.lower()
     loaded_model = tf.keras.models.load_model('saved_model/dqn_' + game_name_model_load)
     loaded_model.summary()
+    print(game_name_model_load)
     return loaded_model, create_env(game_name)
 
 
@@ -134,6 +137,7 @@ def step_env():
 def switch_model(data):
     new_model_index = int(data['new_model'])
     new_model_name = tf_model.avaliable_models[new_model_index]
+    print(new_model_name)
     new_model, new_env = load_tf_model_and_env(new_model_name)
     new_activation_model = create_activation_model(new_model)
 

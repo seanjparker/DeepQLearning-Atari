@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from utils.atari import make_atari, construct_env
+from utils.atari import construct_env
 
 
 def test(env_name='PongNoFrameskip-v4', load_path=None):
@@ -9,8 +9,7 @@ def test(env_name='PongNoFrameskip-v4', load_path=None):
         model = tf.saved_model.load(load_path)
 
     print('Running trained model')
-    env = make_atari(env_name)
-    env = construct_env(env, frame_stack=True)
+    env = construct_env(env_name, frame_stack=True)
     obs = env.reset()
 
     state = model.initial_state if hasattr(model, 'initial_state') else None

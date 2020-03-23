@@ -1,3 +1,4 @@
+import tensorflow as tf
 import numpy as np
 from collections import deque
 
@@ -30,11 +31,11 @@ class ReplayMemory:
             obs1.append(np.array(obs_t1, copy=False))
             dones.append(done)
 
-        return np.array(obs0, dtype=obs_dtype), \
-            np.array(actions, dtype=action_dtype), \
-            np.array(rewards, dtype=np.float32), \
-            np.array(obs1, dtype=obs_dtype), \
-            np.array(dones, dtype=np.float32)
+        return tf.constant(np.array(obs0, dtype=obs_dtype)), \
+            tf.constant(np.array(actions, dtype=action_dtype)), \
+            tf.constant(np.array(rewards, dtype=np.float32)), \
+            tf.constant(np.array(obs1, dtype=obs_dtype)), \
+            tf.constant(np.array(dones, dtype=np.float32))
 
     def sample(self, batch_size):
         buffer_size = len(self.buffer)

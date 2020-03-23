@@ -22,13 +22,13 @@ def conv(convs=None, **conv_kwargs):
         network_input = tf.keras.Input(shape=input_shape, dtype=input_dtype)
 
         # Normalise the network input to the range [0, 1] from [0, 255]
-        h = tf.cast(network_input, tf.float32) / 255.0
+        layer = tf.cast(network_input, tf.float32) / 255.0
         with tf.name_scope("convnet"):
             for num_outputs, kernel_size, stride in convs:
-                h = tf.keras.layers.Conv2D(
+                layer = tf.keras.layers.Conv2D(
                     filters=num_outputs, kernel_size=kernel_size, strides=stride,
-                    activation='relu', **conv_kwargs)(h)
+                    activation='relu', **conv_kwargs)(layer)
 
-        network = tf.keras.Model(inputs=[network_input], outputs=[h])
+        network = tf.keras.Model(inputs=[network_input], outputs=[layer])
         return network
     return network_builder

@@ -109,7 +109,7 @@ def train_model(env,
     reset = True
 
     for t in range(total_timesteps):
-        update_eps = tf.constant(exploration.value(t))
+        update_eps = exploration.step_to(t)
 
         action, _, _, _ = dqn.step(tf.constant(obs), update_eps=update_eps)
         action = action[0].numpy()
@@ -132,8 +132,6 @@ def train_model(env,
             obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
             weights, _ = tf.ones_like(rewards), None
 
-            obses_t, obses_tp1 = tf.constant(obses_t), tf.constant(obses_tp1)
-            actions, rewards, dones = tf.constant(actions), tf.constant(rewards), tf.constant(dones)
             td_loss = dqn.train(obses_t, actions, rewards, obses_tp1, dones, weights)
 
         if t > learning_starts and t % target_network_update_freq == 0:

@@ -1,4 +1,8 @@
 # OpenAI Gym environment wrappers
+# Taken from OpenAI Gym Github repository
+# Wrappers to make it easier to deal with the emulated environments
+# e.g. Reset on new game, fire on new life, clipping reward, frame skip, frame stack
+# -- Minor modifications made for my use
 
 import os
 import gym

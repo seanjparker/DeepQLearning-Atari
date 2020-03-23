@@ -3,6 +3,7 @@ from utils.network_builder import conv
 
 
 def build_q_func(network, hiddens=None):
+    # By default, we only have one hidden layer of 256 nodes
     if hiddens is None:
         hiddens = [256]
     network = conv(convs=network)

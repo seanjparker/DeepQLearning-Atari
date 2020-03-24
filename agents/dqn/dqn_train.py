@@ -96,9 +96,9 @@ def train_model(env,
     # Create the replay buffer
     replay_buffer = ReplayMemory(buffer_size)
     # Create the schedule for exploration starting from 1.
-    exploration = LinearSchedule(schedule_timesteps=int(exploration_fraction * total_timesteps),
-                                 initial_p=1.0,
-                                 final_p=exploration_final_eps)
+    exploration = LinearSchedule(total_timesteps=int(exploration_fraction * total_timesteps),
+                                 initial_prob=1.0,
+                                 final_prob=exploration_final_eps)
 
     dqn.update_target()
 

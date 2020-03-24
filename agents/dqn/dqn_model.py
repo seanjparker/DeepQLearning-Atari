@@ -22,6 +22,7 @@ class DeepQ(tf.Module):
         self.gamma = gamma
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
         self.loss = huber_loss
         self.train_loss_metrics = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
 
@@ -48,12 +49,13 @@ class DeepQ(tf.Module):
 
         Returns
         -------
-            Tensor of dtype tf.int64 and shape (BATCH_SIZE,) with an action to be performed for
+            Tensor of data type tf.int64 and shape batch_size with an action to be performed for
             every element of the batch.
         """
         q_values = self.q_network(observation)
         deterministic_actions = tf.argmax(q_values, axis=1)
         batch_size = tf.shape(observation)[0]
+
         random_actions = tf.random.uniform(tf.stack([batch_size]), minval=0, maxval=self.num_actions, dtype=tf.int64)
         choose_random = tf.random.uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < self.eps
         stochastic_actions = tf.where(choose_random, random_actions, deterministic_actions)

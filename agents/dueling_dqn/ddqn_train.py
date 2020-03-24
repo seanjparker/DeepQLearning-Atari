@@ -39,7 +39,7 @@ def train_model(env,
     learning_rate: float
         learning rate for adam optimizer
     total_timesteps: int
-        number of env steps to optimizer for
+        number of env steps to run the environment
     buffer_size: int
         size of the replay buffer
     exploration_fraction: float
@@ -47,8 +47,7 @@ def train_model(env,
     exploration_final_eps: float
         final value of random action probability
     train_freq: int
-        update the model every `train_freq` steps.
-        set to None to disable printing
+        update the model every train_freq steps.
     batch_size: int
         size of a batched sampled from replay buffer for training
     print_freq: int
@@ -96,9 +95,9 @@ def train_model(env,
     # Create the replay buffer
     replay_buffer = ReplayMemory(buffer_size)
     # Create the schedule for exploration starting from 1.
-    exploration = LinearSchedule(schedule_timesteps=int(exploration_fraction * total_timesteps),
-                                 initial_p=1.0,
-                                 final_p=exploration_final_eps)
+    exploration = LinearSchedule(total_timesteps=int(exploration_fraction * total_timesteps),
+                                 initial_prob=1.0,
+                                 final_prob=exploration_final_eps)
 
     dqn.update_target()
 
@@ -106,14 +105,13 @@ def train_model(env,
     obs = env.reset()
 
     obs = np.expand_dims(np.array(obs), axis=0)
-    reset = True
 
     for t in range(total_timesteps):
         update_eps = exploration.step_to(t)
 
         action, _, _, _ = dqn.step(tf.constant(obs), update_eps=update_eps)
         action = action[0].numpy()
-        reset = False
+
         new_obs, reward, done, _ = env.step(action)
         # Store transition in the replay buffer.
         new_obs = np.expand_dims(np.array(new_obs), axis=0)
@@ -125,7 +123,6 @@ def train_model(env,
             obs = env.reset()
             obs = np.expand_dims(np.array(obs), axis=0)
             episode_rewards.append(0.0)
-            reset = True
 
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.

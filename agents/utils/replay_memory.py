@@ -14,11 +14,10 @@ class ReplayMemory:
         # Store the sample (s, a, r, s', d) sample in replay memory
         self.buffer.append((obs, action, reward, next_obs, done))
 
-    def get_samples_from_indexes(self, indexes) -> [np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def sample_from_indexes(self, indexes) -> [tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
         obs0, actions, rewards, obs1, dones = [], [], [], [], []
-        data = self.buffer[0]
-        obs_dtype = data[0].dtype
-        action_dtype = data[1].dtype
+        obs_dtype = self.buffer[0][0].dtype
+        action_dtype = self.buffer[0][1].dtype
 
         for i in indexes:
             data = self.buffer[i]
@@ -38,7 +37,6 @@ class ReplayMemory:
             tf.constant(np.array(dones, dtype=np.float32))
 
     def sample(self, batch_size):
-        buffer_size = len(self.buffer)
-        indexs = np.random.choice(np.arange(buffer_size), size=batch_size)
+        chosen_indexes = np.random.permutation(np.arange(len(self.buffer)))[:batch_size]
 
-        return self.get_samples_from_indexes(indexs)
+        return self.sample_from_indexes(chosen_indexes)

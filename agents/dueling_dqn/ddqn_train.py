@@ -135,11 +135,11 @@ def train_model(env,
             # Update target network every target_network_update_freq steps
             dqn.update_target()
 
-        mean_100ep_reward = np.round(np.mean(episode_rewards[-101:-1]), 1)
-        num_episodes = len(episode_rewards)
-        if done and print_freq is not None and num_episodes % print_freq == 0:
-            format_str = "steps: {}, episodes: {}, mean 100 ep reward: {}, episode reward: {}, %time spent expl: {}"
-            print(format_str.format(t, num_episodes, mean_100ep_reward, episode_rewards[-2],
+        reward_100_mean = np.round(np.mean(episode_rewards[-101:-1]), 1)
+        number_episodes = len(episode_rewards) - 1
+        if done and print_freq is not None and number_episodes % print_freq == 0:
+            format_str = "Steps: {}, Episodes: {}, 100 ep reward average: {}, Reward: {}, Epsilon-greedy %explore: {}"
+            print(format_str.format(t, number_episodes, reward_100_mean, episode_rewards[-2],
                                     int(100 * exploration.value(t))))
 
             with train_summary_writer.as_default():

@@ -120,21 +120,21 @@ class DeepQ(tf.Module):
             q_t = self.q_network(obs0)
 
             # Perform one-hot encoding of the q-value result based on selected action
-            q_t_selected = tf.reduce_sum(q_t * tf.one_hot(actions, self.num_actions, dtype=tf.float32), 1)
+            q_t_weighted = tf.reduce_sum(q_t * tf.one_hot(actions, self.num_actions, dtype=tf.float32), 1)
 
             # Perform forward pass through target network
-            q_tp1 = self.target_q_network(obs1)
+            q_tp_1 = self.target_q_network(obs1)
 
             # Get the best q-value from the target network pass
             # If we are using a double dqn then use find q_best based on target and q-network predictions
-            q_tp1_best = self.get_best_q_action(obs1, q_tp1)
+            q_tp_1_best = self.get_best_q_action(obs1, q_tp_1)
+            dones = 1.0 - tf.cast(dones, q_tp_1_best.dtype)
 
-            dones = tf.cast(dones, q_tp1_best.dtype)
-            q_tp1_best_masked = (1.0 - dones) * q_tp1_best
+            q_tp_1_best_after_done_mask = dones * q_tp_1_best
 
             # Calculate the losses from the bellman equation
-            q_t_selected_target = rewards + self.gamma * q_tp1_best_masked
-            td_loss = q_t_selected - tf.stop_gradient(q_t_selected_target)
+            q_t_selected_target_value = rewards + self.gamma * q_tp_1_best_after_done_mask
+            td_loss = q_t_weighted - tf.stop_gradient(q_t_selected_target_value)
 
             # Clip the losses using the huber loss function
             # See https://en.wikipedia.org/wiki/Huber_loss
